@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'" />
+  <title>DayGlassBar 設定</title>
+  <link rel="stylesheet" href="settings.css" />
+</head>
+<body>
+  <header>
+    <h1>DayGlassBar</h1>
+    <p class="tagline">一日の残り時間を、画面の縁で。</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>スケジュール</h2>
+      <p class="note">
+        日跨ぎは終了を <code>25:00</code> のように24時超で表記します（例: 13:00〜25:00 = 翌1:00まで。区間はその開始日に帰属）。
+        休憩は「残り側」にグレーで表示され、過ぎた休憩は経過分と一緒に消えます。
+      </p>
+      <div id="weekly"></div>
+    </section>
+
+    <section>
+      <h2>特定日の上書き</h2>
+      <p class="note">指定した日は曜日設定より優先されます。休みにしたい日は「有効」を外してください。</p>
+      <div id="overrides"></div>
+      <div class="row add-row">
+        <input type="date" id="override-date" />
+        <button type="button" id="add-override">この日を上書き</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>表示</h2>
+      <div class="grid">
+        <label>
+          <span class="lbl">ディスプレイ</span>
+          <select id="f-display"></select>
+        </label>
+        <label>
+          <span class="lbl">辺</span>
+          <select id="f-edge">
+            <option value="top">上</option>
+            <option value="bottom">下</option>
+            <option value="left">左</option>
+            <option value="right">右</option>
+          </select>
+        </label>
+        <label>
+          <span class="lbl">太さ（px）</span>
+          <input type="number" id="f-thickness" min="1" max="64" step="1" />
+        </label>
+        <label>
+          <span class="lbl">色</span>
+          <input type="color" id="f-color" />
+        </label>
+        <label>
+          <span class="lbl">不透明度 <span class="val" id="v-opacity"></span></span>
+          <input type="range" id="f-opacity" min="0.05" max="1" step="0.05" />
+        </label>
+        <label>
+          <span class="lbl">休憩の色</span>
+          <input type="color" id="f-break-color" />
+        </label>
+        <label class="check">
+          <input type="checkbox" id="f-track" />
+          <span>下地を表示（軸全長のうす表示）</span>
+        </label>
+        <label>
+          <span class="lbl">下地の濃さ <span class="val" id="v-track-opacity"></span></span>
+          <input type="range" id="f-track-opacity" min="0" max="1" step="0.02" />
+        </label>
+        <label class="check">
+          <input type="checkbox" id="f-ticks" />
+          <span>目盛りを表示</span>
+        </label>
+        <label>
+          <span class="lbl">目盛り間隔（分）</span>
+          <input type="number" id="f-ticks-interval" min="5" max="720" step="5" />
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h2>動作</h2>
+      <div class="grid">
+        <label class="check">
+          <input type="checkbox" id="f-autolaunch" />
+          <span>ログイン時に自動起動</span>
+        </label>
+        <label>
+          <span class="lbl">ホバー判定（ms）</span>
+          <input type="number" id="f-dwell" min="100" max="2000" step="50" />
+        </label>
+        <label>
+          <span class="lbl">展開時の太さ（px）</span>
+          <input type="number" id="f-expanded" min="24" max="200" step="4" />
+        </label>
+      </div>
+    </section>
+
+    <section class="dev">
+      <h2>開発</h2>
+      <p class="note">
+        時刻シミュレーション（環境変数）:
+        <code>DAYGLASSBAR_FAKE_NOW="2026-06-15 16:30"</code> /
+        <code>DAYGLASSBAR_TIME_OFFSET_MIN=120</code> /
+        <code>DAYGLASSBAR_TIME_SCALE=60</code>
+        — 詳細は CLAUDE.md / docs/design.md
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    <ul id="errors" hidden></ul>
+    <div class="actions">
+      <span id="status" role="status"></span>
+      <button type="button" id="save" class="primary">保存して適用</button>
+    </div>
+  </footer>
+
+  <script src="settings.js"></script>
+</body>
+</html>

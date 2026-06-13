@@ -1,0 +1,55 @@
+{
+  "name": "dayglassbar",
+  "productName": "DayGlassBar",
+  "version": "0.1.0",
+  "description": "一日の終わりまでの残り時間を、画面の縁の細いバーで可視化するアンビエントなデスクトップアプリ",
+  "type": "module",
+  "main": "src/main/index.js",
+  "author": "mu-777",
+  "license": "UNLICENSED",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "icons": "node tools/gen-icons.mjs",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.mu777.dayglassbar",
+    "productName": "DayGlassBar",
+    "directories": {
+      "buildResources": "assets",
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.utilities",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
