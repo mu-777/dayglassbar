@@ -7,4 +7,6 @@ contextBridge.exposeInMainWorld('api', {
   validateSettings: (settings) => ipcRenderer.invoke('settings:validate', settings),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   listDisplays: () => ipcRenderer.invoke('displays:list'),
+  exportSettings: () => ipcRenderer.invoke('settings:export'),
+  importSettings: () => ipcRenderer.invoke('settings:import'),
 });

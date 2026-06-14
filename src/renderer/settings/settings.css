@@ -33,9 +33,9 @@ body {
 
 header {
   padding: 16px 20px 12px;
-  /* the bar motif: a thin filled rule that "drains" left→right under the title */
+  /* the bar motif: a thin filled rule that "drains" right→left under the title */
   border-bottom: 2px solid transparent;
-  border-image: linear-gradient(to right, var(--accent) 0%, var(--accent) 62%, var(--line) 62%, var(--line) 100%) 1;
+  border-image: linear-gradient(to left, var(--accent) 0%, var(--accent) 62%, var(--line) 62%, var(--line) 100%) 1;
 }
 
 header h1 {
@@ -284,11 +284,20 @@ footer {
   overflow-y: auto;
 }
 
+/* export/import on the left, the commit action (保存して適用) on the right —
+   spaced apart so export/import is not mis-clicked against the primary button */
 .actions {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 14px;
+}
+
+.io-actions,
+.commit-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 #status {

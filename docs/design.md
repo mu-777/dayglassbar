@@ -49,6 +49,8 @@
 | `settings:get` | invoke | 現在の設定を取得 |
 | `settings:validate` | invoke | 設定候補を検証（保存しない） |
 | `settings:save` | invoke | 検証OKなら保存（→onChangeでバー即時反映） |
+| `settings:export` | invoke | `showSaveDialog` で選んだ JSON ファイルへ現在の設定を書き出す（ローカルファイルのみ） |
+| `settings:import` | invoke | `showOpenDialog` で選んだ JSON を読み、`validateSettings` OK なら `store.save`（→onChangeで反映）。不正/破損時は何も適用しない |
 | `displays:list` | invoke | ディスプレイ一覧（id/primary/label） |
 | `bar:open-settings` | send | バーから設定画面を開く |
 | `bar:state` | main→renderer | 毎秒の描画状態（state/appearance/expanded） |
@@ -59,15 +61,17 @@
 {
   "version": 1,
   "schedule": {
-    "weekly": { "mon": {"enabled":true,"start":"9:00","end":"17:00","breaks":[{"start":"12:00","end":"13:00"}]}, /* …sun */ },
+    // 既定では月〜日すべて defaultWorkday()（9:00〜17:00・昼休憩）= 土日も ON。
+    // → 初回起動が曜日に関係なく必ず見える変化になる。
+    "weekly": { "mon": {"enabled":true,"start":"9:00","end":"17:00","breaks":[{"start":"12:00","end":"13:00"}]}, /* …sun（土日含む全曜日 ON） */ },
     "overrides": { "2026-06-15": {"enabled":true,"start":"10:00","end":"15:00","breaks":[]} }
   },
   "appearance": {
-    "displayId": null, "edge": "top", "thickness": 6,
+    "displayId": null, "edge": "right", "thickness": 16,
     "color": "#4a90d9", "opacity": 0.9,
     "track": {"enabled": true, "opacity": 0.18},
     "breakColor": "#8a8f98",
-    "ticks": {"enabled": false, "intervalMinutes": 60}
+    "ticks": {"enabled": true, "intervalMinutes": 60}
   },
   "behavior": { "autoLaunch": false, "hover": {"dwellMs": 350, "expandedThickness": 56} }
 }
@@ -75,6 +79,15 @@
 
 - 保存は tmp ファイル＋rename の原子的書き込み。読み込み失敗時はデフォルトへフォールバック。
 - `mergeWithDefaults` で将来のキー追加に前方互換（既存ファイルに無いキーはデフォルト補完、配列は data 優先）。
+- 既定値は「初回起動が曜日・時刻に関係なく必ず見える変化になる」ことを狙う: 土日も ON・下地表示 ON・目盛り表示 ON・太さ 16px・辺は右。
+
+## 設定のエクスポート/インポート（ローカルファイルのみ）
+
+- クラウド連携はしない。`settings:export`/`settings:import`（IPC）は Electron の `dialog.show{Save,Open}Dialog` でファイルを選ぶ方式。
+- エクスポート: 現在の `store.get()` を JSON で書き出す。
+- インポート: 読み込んだ JSON を **既存の `validateSettings`** で検証し、OK のときだけ `store.save`（→ `store.onChange` でバーへ即時反映）。不正/破損 JSON は何も適用せず、設定 UI にエラー表示。
+- ボタン配置は設定画面フッターを `justify-content: space-between` の1行にし、**左に「エクスポート」「インポート」**、**右にコミット系（ステータス＋「保存して適用」）**を置く。コミット操作（保存して適用）への誤クリックを避けるための分離。
+- 設定 UI に「開発」セクションは置かない。時刻シミュレーションは環境変数（`DAYGLASSBAR_FAKE_NOW`/`DAYGLASSBAR_TIME_SCALE`/`DAYGLASSBAR_TIME_OFFSET_MIN`）専用（spec §7 / `src/core/time-source.js`）。
 
 ## モジュール構成と責務
 

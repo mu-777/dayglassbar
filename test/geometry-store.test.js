@@ -35,10 +35,21 @@ test('isHorizontal', () => {
   assert.equal(isHorizontal('right'), false);
 });
 
+test('DEFAULT_SETTINGS: first-launch defaults guarantee a visible bar', () => {
+  // Goal: a fresh install always produces a visible change regardless of day/time.
+  // Weekends ON, track + ticks ON, thickness 16px, edge right.
+  assert.equal(DEFAULT_SETTINGS.schedule.weekly.sat.enabled, true);
+  assert.equal(DEFAULT_SETTINGS.schedule.weekly.sun.enabled, true);
+  assert.equal(DEFAULT_SETTINGS.appearance.track.enabled, true);
+  assert.equal(DEFAULT_SETTINGS.appearance.ticks.enabled, true);
+  assert.equal(DEFAULT_SETTINGS.appearance.thickness, 16);
+  assert.equal(DEFAULT_SETTINGS.appearance.edge, 'right');
+});
+
 test('store: defaults when no file, then round-trips a save and notifies', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dgb-'));
   const store = createStore(dir);
-  assert.equal(store.get().appearance.edge, 'top');
+  assert.equal(store.get().appearance.edge, 'right');
 
   const next = structuredClone(store.get());
   next.appearance.edge = 'left';
@@ -65,7 +76,7 @@ test('mergeWithDefaults fills missing branches, keeps arrays as-is', () => {
     schedule: { weekly: { mon: { enabled: true, start: '8:00', end: '16:00', breaks: [] } } },
   });
   assert.equal(merged.appearance.thickness, 12);
-  assert.equal(merged.appearance.edge, 'top');
+  assert.equal(merged.appearance.edge, 'right'); // default preserved
   assert.equal(merged.behavior.hover.dwellMs, 350);
   assert.deepEqual(merged.schedule.weekly.mon.breaks, []);
   assert.equal(merged.schedule.weekly.tue.enabled, true); // default preserved

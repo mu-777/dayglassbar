@@ -1,0 +1,60 @@
+name: build
+
+# Windows と macOS の配布物を、それぞれのネイティブ環境で生成する。
+# WSL(Linux) からは macOS ビルドができないため、両OS分はここ(CI)で出す。
+#   - 手動実行 (workflow_dispatch): Artifacts のみ生成（Release は作らない）
+#   - v* タグ push: 両OSをビルドし GitHub Release にバイナリを添付
+# package-lock.json をコミットしておくこと（npm ci に必要）。
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    permissions:
+      contents: write          # タグ push 時に Release を作成するため
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: win        # nsis インストーラ + portable
+          - os: macos-latest
+            platform: mac        # dmg（arm64。ランナーは Apple Silicon）
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Build (${{ matrix.platform }})
+        run: npm run dist:${{ matrix.platform }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dayglassbar-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.blockmap
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.blockmap

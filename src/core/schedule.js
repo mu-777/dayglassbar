@@ -95,6 +95,37 @@ export function getActiveInterval(schedule, nowMs) {
   return null;
 }
 
+// What range to show as "the current schedule" (e.g. the tray summary line).
+// When an overnight interval started yesterday is still running, this reports
+// *that* interval — its source weekday + over-24h range — instead of the naive
+// calendar-today record, so e.g. Mon 02:00 inside Sun 9:00–27:00 reports Sunday.
+// Falls back to the calendar-today record when no interval is active.
+// Returns { active, weekdayKey, dateKey, enabled, startMin?, endMin? }.
+export function getActiveDaySummary(schedule, nowMs) {
+  const interval = getActiveInterval(schedule, nowMs);
+  if (interval) {
+    const sourceDate = parseDateKey(interval.anchorKey);
+    return {
+      active: true,
+      weekdayKey: WEEKDAY_KEYS[sourceDate.getDay()],
+      dateKey: interval.anchorKey,
+      enabled: true,
+      startMin: Math.round((interval.startMs - interval.anchorMidnightMs) / 60000),
+      endMin: Math.round((interval.endMs - interval.anchorMidnightMs) / 60000),
+    };
+  }
+  const today = new Date(nowMs);
+  const rec = resolveDay(schedule, today);
+  return {
+    active: false,
+    weekdayKey: WEEKDAY_KEYS[today.getDay()],
+    dateKey: dateKeyOf(today),
+    enabled: rec.enabled,
+    startMin: rec.enabled ? rec.startMin : undefined,
+    endMin: rec.enabled ? rec.endMin : undefined,
+  };
+}
+
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 
 // Segments covering the remaining region [nowFrac, 1] of the axis.

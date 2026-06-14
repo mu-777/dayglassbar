@@ -12,20 +12,20 @@ export const DEFAULT_SETTINGS = {
       wed: defaultWorkday(),
       thu: defaultWorkday(),
       fri: defaultWorkday(),
-      sat: { enabled: false },
-      sun: { enabled: false },
+      sat: defaultWorkday(),
+      sun: defaultWorkday(),
     },
     overrides: {},
   },
   appearance: {
     displayId: null, // null = primary display
-    edge: 'top', // top | bottom | left | right
-    thickness: 6, // logical px
+    edge: 'right', // top | bottom | left | right
+    thickness: 16, // logical px
     color: '#4a90d9',
     opacity: 0.9,
     track: { enabled: true, opacity: 0.18 },
     breakColor: '#8a8f98',
-    ticks: { enabled: false, intervalMinutes: 60 },
+    ticks: { enabled: true, intervalMinutes: 60 },
   },
   behavior: {
     autoLaunch: false,

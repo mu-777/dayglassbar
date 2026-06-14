@@ -222,5 +222,25 @@
     setStatus(result.ok ? '保存して適用しました' : '保存できませんでした（エラーを確認してください）');
   });
 
+  $('#export').addEventListener('click', async () => {
+    const result = await window.api.exportSettings();
+    if (result.canceled) return;
+    showErrors([]);
+    setStatus(result.ok ? 'エクスポートしました' : `エクスポートできませんでした（${result.error ?? '不明なエラー'}）`);
+  });
+
+  $('#import').addEventListener('click', async () => {
+    const result = await window.api.importSettings();
+    if (result.canceled) return;
+    if (result.ok) {
+      showErrors([]);
+      await load(); // reflect the imported (now persisted) settings in the form
+      setStatus('インポートして適用しました');
+    } else {
+      showErrors(result.errors ?? [{ message: result.error ?? 'インポートできませんでした' }]);
+      setStatus('インポートできませんでした（エラーを確認してください）');
+    }
+  });
+
   load();
 })();

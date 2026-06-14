@@ -9,8 +9,12 @@ npm install          # 依存取得（初回・要ネットワーク）
 npm start            # 開発起動（electron .）
 npm test             # coreのユニットテスト（node --test）
 npm run icons        # アイコン再生成（依存ゼロ・assets/へ出力）
-npm run dist         # 配布ビルド（electron-builder: win nsis/portable, mac dmg）
+npm run dist         # 配布ビルド（ホストOS向け・electron-builder）
+npm run dist:win     # Windows向け（nsis/portable）。WSL/Linuxからは Wine 必須
+npm run dist:mac     # macOS向け（dmg）。macOS上でのみ可（WSL/Linux不可）
 ```
+
+クロスビルド: WSL(Linux)からは Windows のみ可（Wine 必要）。macOS(dmg)は macOS 専用ツール依存で不可 → 両OS分は `.github/workflows/build.yml`（windows/macos ランナーでネイティブビルド）を使う。手順は README「ビルド（配布物）」参照。
 
 時刻シミュレーション（開発時。詳細は docs/spec-v2.md §7）:
 
@@ -32,7 +36,9 @@ DAYGLASSBAR_TIME_OFFSET_MIN=120 npm start
 
 - 状態の流れ: main が毎秒 `getBarState(schedule, now)` を計算 → `bar:state` で renderer に push → renderer は純粋に描画。
 - 設定の流れ: 設定UI → `settings:save`(IPC) → `validateSettings` OK で `store.save` → `store.onChange` でバーへ即時反映。
+- エクスポート/インポート: `settings:export`/`settings:import`(IPC) は `dialog.show{Save,Open}Dialog` でローカル JSON を読み書き（クラウドなし）。インポートは `validateSettings` OK のときだけ `store.save`、不正/破損時は何も適用せず UI にエラー表示。設定 UI に「開発」セクションは無い（時刻シミュレーションは環境変数専用）。
 - IPC一覧・設定スキーマは docs/design.md。
+- 既定値: 全曜日（土日含む）ON / 下地表示 ON / 目盛り表示 ON / 太さ 16px / 辺は右。初回起動が曜日・時刻に関係なく必ず見える変化になることを狙う（`src/main/store.js` の `DEFAULT_SETTINGS`、`test/geometry-store.test.js` で担保）。
 
 ## 不変条件（変更時に壊さないこと）
 
@@ -45,8 +51,15 @@ DAYGLASSBAR_TIME_OFFSET_MIN=120 npm start
 
 ## 検証方針
 - 自動テストで担保できるのは **core まで**（時間・検証・幾何・store）。
-- バー描画・クリックスルー・ホバー展開・トレイ・自動起動・DPIは **Windows 実機での手動確認**が必要（README のチェックリスト参照）。
+- バー描画・クリックスルー・ホバー展開・トレイ・自動起動・DPI、および設定のエクスポート/インポート（`dialog` を伴うファイル選択）は **Windows 実機での手動確認**が必要（README のチェックリスト参照）。
+
+## ドキュメント保守（Claude Code の振る舞い）
+- コード変更時は、影響範囲に応じて `README.md`（利用者向け）と `CLAUDE.md`（開発・AI向け）を**ユーザーの指示を待たずに同じ作業内で更新**する。コマンド・設定スキーマ・IPC・不変条件・アーキテクチャ・動作確認手順に変化があれば必ず追従させる。
+- ドキュメント更新が不要な軽微な変更（内部リファクタ・コメント修正など）では無理に書き換えない。
+- 両ファイルで重複する記述（コマンド・時刻シミュレーション・nvm 手順など）は、片方だけを直さず常に整合させる。
+- **`README.md` には最終確定した内容のみを書く**。「推奨」「可否」「比較」「今後の予定」など検討中・選択肢提示の記述は載せない（手順・仕様・事実のみ）。未確定の設計判断は `docs/design.md` に記す。
 
 ## 参考
 - 要件: `docs/spec-v2.md`
 - 設計判断（スタック選定・ホバー方式・既知の制限）: `docs/design.md`
+- プロダクト原則（明示指示がなくても守る一般方針）: `docs/product-principles.md`

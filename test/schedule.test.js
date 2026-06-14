@@ -5,6 +5,7 @@ import {
   formatMinutes,
   resolveDay,
   getActiveInterval,
+  getActiveDaySummary,
   getBarState,
 } from '../src/core/schedule.js';
 
@@ -78,6 +79,58 @@ test("after an overnight interval ends, today's own schedule decides the mode", 
   const tueOff = weekly({ mon: day('13:00', '25:00') });
   assert.equal(getBarState(tueOff, TUE(0, 30)).mode, 'active'); // still inside mon's interval
   assert.equal(getBarState(tueOff, TUE(2, 0)).mode, 'hidden'); // tue is OFF (spec 5)
+});
+
+test('getActiveDaySummary: plain in-interval day reports today', () => {
+  const schedule = weekly({ mon: day('9:00', '17:00') });
+  const s = getActiveDaySummary(schedule, MON(12));
+  assert.equal(s.active, true);
+  assert.equal(s.enabled, true);
+  assert.equal(s.weekdayKey, 'mon');
+  assert.equal(s.dateKey, '2026-06-15');
+  assert.equal(s.startMin, 540);
+  assert.equal(s.endMin, 1020);
+});
+
+test('getActiveDaySummary: outside any interval falls back to calendar-today', () => {
+  const schedule = weekly({ mon: day('9:00', '17:00') });
+  const s = getActiveDaySummary(schedule, MON(8)); // before start
+  assert.equal(s.active, false);
+  assert.equal(s.enabled, true);
+  assert.equal(s.weekdayKey, 'mon');
+  assert.equal(s.dateKey, '2026-06-15');
+  assert.equal(s.startMin, 540);
+});
+
+test('getActiveDaySummary: OFF day reports disabled', () => {
+  const schedule = weekly({}); // all OFF
+  const s = getActiveDaySummary(schedule, MON(12));
+  assert.equal(s.active, false);
+  assert.equal(s.enabled, false);
+  assert.equal(s.weekdayKey, 'mon');
+});
+
+test('getActiveDaySummary: overnight previous-day interval reports the source day, not today', () => {
+  // Sunday (2026-06-14) 9:00–27:00 ends 3:00 Monday. At Monday 02:00 the active
+  // interval is Sunday's, so the summary must name Sunday with its over-24h range.
+  const schedule = weekly({ sun: day('9:00', '27:00') });
+  const s = getActiveDaySummary(schedule, MON(2));
+  assert.equal(s.active, true);
+  assert.equal(s.enabled, true);
+  assert.equal(s.weekdayKey, 'sun');
+  assert.equal(s.dateKey, '2026-06-14');
+  assert.equal(s.startMin, 540); // 9:00
+  assert.equal(s.endMin, 1620); // 27:00 (over-24h preserved)
+});
+
+test('getActiveDaySummary: after an overnight interval ends, reports today', () => {
+  // Sunday 9:00–27:00 ends 3:00 Monday; at 04:00 it is over and Monday is OFF.
+  const schedule = weekly({ sun: day('9:00', '27:00') });
+  const s = getActiveDaySummary(schedule, MON(4));
+  assert.equal(s.active, false);
+  assert.equal(s.enabled, false); // mon is OFF
+  assert.equal(s.weekdayKey, 'mon');
+  assert.equal(s.dateKey, '2026-06-15');
 });
 
 test('bar state modes across a plain day', () => {

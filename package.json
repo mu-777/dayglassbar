@@ -15,7 +15,10 @@
     "start": "electron .",
     "test": "node --test",
     "icons": "node tools/gen-icons.mjs",
-    "dist": "electron-builder"
+    "capture": "electron tools/capture-bar.mjs",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac"
   },
   "devDependencies": {
     "electron": "^33.2.0",

@@ -101,23 +101,19 @@
       </div>
     </section>
 
-    <section class="dev">
-      <h2>開発</h2>
-      <p class="note">
-        時刻シミュレーション（環境変数）:
-        <code>DAYGLASSBAR_FAKE_NOW="2026-06-15 16:30"</code> /
-        <code>DAYGLASSBAR_TIME_OFFSET_MIN=120</code> /
-        <code>DAYGLASSBAR_TIME_SCALE=60</code>
-        — 詳細は CLAUDE.md / docs/design.md
-      </p>
-    </section>
   </main>
 
   <footer>
     <ul id="errors" hidden></ul>
     <div class="actions">
-      <span id="status" role="status"></span>
-      <button type="button" id="save" class="primary">保存して適用</button>
+      <div class="io-actions">
+        <button type="button" id="export">エクスポート</button>
+        <button type="button" id="import">インポート</button>
+      </div>
+      <div class="commit-actions">
+        <span id="status" role="status"></span>
+        <button type="button" id="save" class="primary">保存して適用</button>
+      </div>
     </div>
   </footer>
 

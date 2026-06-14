@@ -17,6 +17,12 @@ import { computeBarBounds, pointInBounds } from '../core/geometry.js';
 const POLL_IDLE_MS = 250;
 const POLL_NEAR_MS = 60;
 
+// Dev-only escape hatch for environments that don't composite the transparent,
+// always-on-top, click-through overlay (notably WSLg). When the env var is set,
+// the bar is created as an ordinary opaque, focusable window so it actually shows
+// on screen for visual checks. Unset by default → production behavior is unchanged.
+const WSL_VISIBLE = /^(1|true|yes|on)$/i.test(process.env.DAYGLASSBAR_WSL_VISIBLE || '');
+
 export function createBarController({ store, timeSource }) {
   let win = null;
   let expanded = false;
@@ -61,14 +67,15 @@ export function createBarController({ store, timeSource }) {
     win = new BrowserWindow({
       ...currentBounds(),
       frame: false,
-      transparent: true,
+      transparent: !WSL_VISIBLE,
+      backgroundColor: WSL_VISIBLE ? '#1e1e1e' : undefined,
       alwaysOnTop: true,
-      skipTaskbar: true,
+      skipTaskbar: !WSL_VISIBLE,
       resizable: false,
       movable: false,
       minimizable: false,
       maximizable: false,
-      focusable: false,
+      focusable: WSL_VISIBLE,
       hasShadow: false,
       show: false,
       webPreferences: {
@@ -81,7 +88,7 @@ export function createBarController({ store, timeSource }) {
     if (process.platform === 'darwin') {
       win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
     }
-    win.setIgnoreMouseEvents(true, { forward: true });
+    if (!WSL_VISIBLE) win.setIgnoreMouseEvents(true, { forward: true });
     win.on('close', (e) => {
       if (!quitting) e.preventDefault(); // the bar cannot be closed, only quit via the tray
     });
@@ -112,10 +119,9 @@ export function createBarController({ store, timeSource }) {
   function setExpanded(next) {
     if (!win || win.isDestroyed() || expanded === next) return;
     expanded = next;
-    if (next) {
-      win.setIgnoreMouseEvents(false);
-    } else {
-      win.setIgnoreMouseEvents(true, { forward: true });
+    if (!WSL_VISIBLE) {
+      if (next) win.setIgnoreMouseEvents(false);
+      else win.setIgnoreMouseEvents(true, { forward: true });
     }
     applyBounds();
     pushState();
