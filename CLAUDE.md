@@ -63,3 +63,4 @@ DAYGLASSBAR_TIME_OFFSET_MIN=120 npm start
 - 要件: `docs/spec-v2.md`
 - 設計判断（スタック選定・ホバー方式・既知の制限）: `docs/design.md`
 - プロダクト原則（明示指示がなくても守る一般方針）: `docs/product-principles.md`
+- アイコン決定記録（経緯・不採用案・逆戻りガード）: `docs/icon-design.md`
