@@ -102,7 +102,6 @@ function main() {
         }`,
       }));
     });
-    ipcMain.on('bar:open-settings', () => openSettingsWindow());
 
     // Export current settings to a JSON file chosen by the user (file only — no cloud).
     ipcMain.handle('settings:export', async (e) => {

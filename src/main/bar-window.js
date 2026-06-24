@@ -2,13 +2,16 @@
 //
 // Hover mechanism (spec 4.4 — goal-level requirement, realized here as a design
 // decision recorded in docs/design.md):
-//   - The window normally ignores ALL mouse input (setIgnoreMouseEvents(true)),
-//     so fast edge gestures — maximized-window tabs, close buttons, scrollbars —
-//     pass straight through.
+//   - The window ALWAYS ignores mouse input (setIgnoreMouseEvents(true,
+//     { forward: true })), even while expanded, so every gesture — maximized-
+//     window tabs, close buttons, scrollbars, and plain clicks on whatever sits
+//     under the bar — passes straight through. The bar is a pure heads-up
+//     display; settings are opened from the tray, never by clicking the bar.
 //   - The main process polls the global cursor position (idle: every 250ms,
 //     near the bar: every 60ms). When the cursor stays inside the bar for
-//     `hover.dwellMs`, the window becomes interactive and expands; when the
-//     cursor leaves it for two consecutive fast polls, it collapses.
+//     `hover.dwellMs`, the window expands (it only grows in size — input stays
+//     transparent); when the cursor leaves it for two consecutive fast polls,
+//     it collapses.
 import path from 'node:path';
 import { BrowserWindow, screen, app } from 'electron';
 import { getBarState } from '../core/schedule.js';
@@ -63,6 +66,26 @@ export function createBarController({ store, timeSource }) {
     win.setResizable(false);
   }
 
+  // Re-assert always-on-top. Two independent facts make this necessary:
+  //   1. Electron (v7+) drops a window's top-most status when it loses focus
+  //      unless an explicit level is given — hence 'screen-saver', not the
+  //      default (electron/electron#20933).
+  //   2. Even with the flag set, Windows lets top-most windows overlap, and a
+  //      frameless/transparent overlay can silently fall behind once another
+  //      window is activated; there is no event for "I got covered" and no
+  //      "super top-most" flag (Raymond Chen, Old New Thing 2011-03-10). The
+  //      established Electron workaround (electron/electron#2097) is to re-apply
+  //      setAlwaysOnTop on a timer — here, from the existing poll() loop.
+  // We only ever set it to true (never the false→true toggle, which steals
+  // top-most from other apps — electron/electron#31536).
+  function raise() {
+    if (!win || win.isDestroyed() || !win.isVisible()) return;
+    win.setAlwaysOnTop(true, 'screen-saver');
+    if (process.platform === 'darwin') {
+      win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: false });
+    }
+  }
+
   function create() {
     win = new BrowserWindow({
       ...currentBounds(),
@@ -110,7 +133,7 @@ export function createBarController({ store, timeSource }) {
       if (win.isVisible()) win.hide(); // OFF day: fully hidden (spec 5)
     } else if (!win.isVisible()) {
       win.showInactive();
-      win.setAlwaysOnTop(true, 'screen-saver');
+      raise(); // re-assert top-most immediately on show; poll() keeps it raised after
     }
     lastMode = state.mode;
     win.webContents.send('bar:state', { state, appearance: ap, expanded });
@@ -119,10 +142,9 @@ export function createBarController({ store, timeSource }) {
   function setExpanded(next) {
     if (!win || win.isDestroyed() || expanded === next) return;
     expanded = next;
-    if (!WSL_VISIBLE) {
-      if (next) win.setIgnoreMouseEvents(false);
-      else win.setIgnoreMouseEvents(true, { forward: true });
-    }
+    // Expansion only changes the window size, never its input transparency: the
+    // bar stays click-through (setIgnoreMouseEvents stays true) at all times so
+    // it never steals clicks from the app underneath.
     applyBounds();
     pushState();
   }
@@ -131,6 +153,7 @@ export function createBarController({ store, timeSource }) {
     let delay = POLL_IDLE_MS;
     try {
       if (win && !win.isDestroyed() && win.isVisible()) {
+        raise(); // keep the bar in front of all windows between ticks
         const pt = screen.getCursorScreenPoint();
         const inside = pointInBounds(pt, win.getBounds());
         if (inside) {

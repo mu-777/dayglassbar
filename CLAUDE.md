@@ -14,7 +14,7 @@ npm run dist:win     # Windows向け（nsis/portable）。WSL/Linuxからは Win
 npm run dist:mac     # macOS向け（dmg）。macOS上でのみ可（WSL/Linux不可）
 ```
 
-クロスビルド: WSL(Linux)からは Windows のみ可（Wine 必要）。macOS(dmg)は macOS 専用ツール依存で不可 → 両OS分は `.github/workflows/build.yml`（windows/macos ランナーでネイティブビルド）を使う。手順は README「ビルド（配布物）」参照。
+クロスビルド: WSL(Linux)からは Windows のみ可（Wine 必要）。macOS(dmg)は macOS 専用ツール依存で不可 → 両OS分は `.github/workflows/build.yml`（windows/macos ランナーでネイティブビルド）を使う。手順は README「ビルド（配布物）」参照。WSL で生成した `.exe` が「このアプリはお使いの PC では実行できません」で起動しない時は、ベースの `electron.exe` がダウンロード途中で壊れている（生成物がキャッシュの electron.exe より小さい）疑い → `rm -rf ~/.cache/electron` で取り直して再ビルド。詳細は `docs/design.md`「既知の制限」。
 
 時刻シミュレーション（開発時。詳細は docs/spec-v2.md §7）:
 
@@ -47,7 +47,7 @@ DAYGLASSBAR_TIME_OFFSET_MIN=120 npm start
 3. **通常時はテキストを出さない**。数値・時刻はホバー展開時のラベルのみ（アンビエント性）。
 4. **「促すが、急かさない」**。色変化・点滅・通知・カウントダウン音などの「急かす」表現を足さない。減るのは塗りの長さのみ・色は一定。
 5. **配置は `workArea` 基準**（タスクバー/Dock/メニューバーを避ける）。
-6. **通常時はクリックスルー維持**（`setIgnoreMouseEvents(true,{forward:true})`）。入力を受けるのは展開時のみ。
+6. **常時クリックスルー維持**（`setIgnoreMouseEvents(true,{forward:true})` を生成時に一度だけ設定）。展開中も入力を受けず素通しする（バーのクリックでは設定を開かない＝背後アプリの操作を奪わない。設定はトレイから）。
 
 ## 検証方針
 - 自動テストで担保できるのは **core まで**（時間・検証・幾何・store）。
@@ -64,3 +64,4 @@ DAYGLASSBAR_TIME_OFFSET_MIN=120 npm start
 - 設計判断（スタック選定・ホバー方式・既知の制限）: `docs/design.md`
 - プロダクト原則（明示指示がなくても守る一般方針）: `docs/product-principles.md`
 - アイコン決定記録（経緯・不採用案・逆戻りガード）: `docs/icon-design.md`
+- 常時最前面の決定記録（ポーリング再宣言採用の経緯・代替案=blur/ネイティブの不採用理由・逆戻りガード・問題時の手順）: `docs/always-on-top.md`

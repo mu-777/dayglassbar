@@ -6,8 +6,10 @@
 // at the edge of a dark "screen" field (cool blue, brand-adjacent). The sliver's
 // lower part is denser and the upper part fades — mirroring the app, where the
 // fill drains downward so the remaining time collects at the bottom (docs/design.md).
-// The tray/template reduce to a simplified centred sliver glyph (the meter nuance
-// cannot survive at 16px / monochrome — that is expected, see docs/design.md).
+// The Windows tray (colour) is a small rendition of the app icon so the running
+// tray icon matches the installed/explorer icon. The macOS menu-bar item must be
+// a black+alpha template, so it reduces to the same edge sliver in one colour
+// (the dark field would read as a solid black square — see docs/design.md).
 import zlib from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -131,18 +133,20 @@ function appIcon(size) {
   return c;
 }
 
-// Tray/template glyph: a simplified centred sliver (a lone edge-bar reads oddly
-// standalone, and the meter nuance can't survive this scale).
-function trayGlyph(size, ink, withGlow) {
+// macOS menu-bar template (black + alpha): monochrome, so the dark "screen" field
+// can't be drawn (it would read as a solid black square). Reduce to the identity's
+// edge sliver — placed toward the right and denser toward the bottom so it still
+// echoes the app icon (edge light draining downward) within a single colour.
+function trayTemplate(size) {
   const c = canvas(size);
-  const hw = flo(size, 0.07, 2), lx = size * 0.5, y0 = size * 0.18, h = size * 0.64;
+  const hw = flo(size, 0.075, 1.5), lx = size * 0.64, y0 = size * 0.16, h = size * 0.68;
   const capsule = (px, py) => inRR(px, py, lx - hw, y0, hw * 2, h, hw);
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++) {
-      let a = coverage(x + 0.5, y + 0.5, capsule);
-      if (withGlow && y + 0.5 > y0 && y + 0.5 < y0 + h)
-        a = Math.max(a, 0.4 * gauss(x + 0.5 - lx, hw * 1.6));
-      if (a > 0) setPx(c, x, y, ink, Math.round(255 * a));
+      const cov = coverage(x + 0.5, y + 0.5, capsule);
+      if (!cov) continue;
+      const dens = 0.5 + 0.5 * clamp01((y + 0.5 - y0) / h); // 0.5 top → 1.0 bottom
+      setPx(c, x, y, [0, 0, 0], Math.round(255 * cov * dens));
     }
   return c;
 }
@@ -156,8 +160,8 @@ function write(name, c) {
 fs.mkdirSync(assets, { recursive: true });
 const written = [
   write('icon.png', appIcon(512)),
-  write('tray.png', trayGlyph(32, COOL, true)),         // color (e.g. Windows)
-  write('trayTemplate.png', trayGlyph(16, [0, 0, 0], false)),   // macOS template (black + alpha)
-  write('trayTemplate@2x.png', trayGlyph(32, [0, 0, 0], false)),
+  write('tray.png', appIcon(32)),                  // Windows tray: mini app icon (colour)
+  write('trayTemplate.png', trayTemplate(16)),     // macOS template (black + alpha)
+  write('trayTemplate@2x.png', trayTemplate(32)),
 ];
 for (const f of written) console.log('wrote', path.relative(path.join(here, '..'), f));
