@@ -1,101 +1,108 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'" />
-  <title>DayGlassBar 設定</title>
+  <title>DayGlassBar</title>
   <link rel="stylesheet" href="settings.css" />
 </head>
 <body>
   <header>
     <h1>DayGlassBar</h1>
-    <p class="tagline">一日の残り時間を、画面の縁で。</p>
+    <p class="tagline" data-i18n="app.tagline"></p>
   </header>
 
   <main>
     <section>
-      <h2>スケジュール</h2>
-      <p class="note">
-        日跨ぎは終了を <code>25:00</code> のように24時超で表記します（例: 13:00〜25:00 = 翌1:00まで。区間はその開始日に帰属）。
-        休憩は「残り側」にグレーで表示され、過ぎた休憩は経過分と一緒に消えます。
-      </p>
-      <div id="weekly"></div>
-    </section>
-
-    <section>
-      <h2>特定日の上書き</h2>
-      <p class="note">指定した日は曜日設定より優先されます。休みにしたい日は「有効」を外してください。</p>
-      <div id="overrides"></div>
-      <div class="row add-row">
-        <input type="date" id="override-date" />
-        <button type="button" id="add-override">この日を上書き</button>
+      <h2 data-i18n="settings.general"></h2>
+      <div class="grid">
+        <label>
+          <span class="lbl" data-i18n="field.language"></span>
+          <select id="f-language"></select>
+        </label>
       </div>
     </section>
 
     <section>
-      <h2>表示</h2>
+      <h2 data-i18n="settings.schedule"></h2>
+      <p class="note" data-i18n-html="settings.scheduleNote"></p>
+      <div id="weekly"></div>
+    </section>
+
+    <section>
+      <h2 data-i18n="settings.overrides"></h2>
+      <p class="note" data-i18n="settings.overridesNote"></p>
+      <div id="overrides"></div>
+      <div class="row add-row">
+        <input type="date" id="override-date" />
+        <button type="button" id="add-override" data-i18n="settings.addOverride"></button>
+      </div>
+    </section>
+
+    <section>
+      <h2 data-i18n="settings.appearance"></h2>
       <div class="grid">
         <label>
-          <span class="lbl">ディスプレイ</span>
+          <span class="lbl" data-i18n="field.display"></span>
           <select id="f-display"></select>
         </label>
         <label>
-          <span class="lbl">辺</span>
+          <span class="lbl" data-i18n="field.edge"></span>
           <select id="f-edge">
-            <option value="top">上</option>
-            <option value="bottom">下</option>
-            <option value="left">左</option>
-            <option value="right">右</option>
+            <option value="top" data-i18n="edge.top"></option>
+            <option value="bottom" data-i18n="edge.bottom"></option>
+            <option value="left" data-i18n="edge.left"></option>
+            <option value="right" data-i18n="edge.right"></option>
           </select>
         </label>
         <label>
-          <span class="lbl">太さ（px）</span>
+          <span class="lbl" data-i18n="field.thickness"></span>
           <input type="number" id="f-thickness" min="1" max="64" step="1" />
         </label>
         <label>
-          <span class="lbl">色</span>
+          <span class="lbl" data-i18n="field.color"></span>
           <input type="color" id="f-color" />
         </label>
         <label>
-          <span class="lbl">不透明度 <span class="val" id="v-opacity"></span></span>
+          <span class="lbl"><span data-i18n="field.opacity"></span> <span class="val" id="v-opacity"></span></span>
           <input type="range" id="f-opacity" min="0.05" max="1" step="0.05" />
         </label>
         <label>
-          <span class="lbl">休憩の色</span>
+          <span class="lbl" data-i18n="field.breakColor"></span>
           <input type="color" id="f-break-color" />
         </label>
         <label class="check">
           <input type="checkbox" id="f-track" />
-          <span>下地を表示（軸全長のうす表示）</span>
+          <span data-i18n="field.track"></span>
         </label>
         <label>
-          <span class="lbl">下地の濃さ <span class="val" id="v-track-opacity"></span></span>
+          <span class="lbl"><span data-i18n="field.trackOpacity"></span> <span class="val" id="v-track-opacity"></span></span>
           <input type="range" id="f-track-opacity" min="0" max="1" step="0.02" />
         </label>
         <label class="check">
           <input type="checkbox" id="f-ticks" />
-          <span>目盛りを表示</span>
+          <span data-i18n="field.ticks"></span>
         </label>
         <label>
-          <span class="lbl">目盛り間隔（分）</span>
+          <span class="lbl" data-i18n="field.ticksInterval"></span>
           <input type="number" id="f-ticks-interval" min="5" max="720" step="5" />
         </label>
       </div>
     </section>
 
     <section>
-      <h2>動作</h2>
+      <h2 data-i18n="settings.behavior"></h2>
       <div class="grid">
         <label class="check">
           <input type="checkbox" id="f-autolaunch" />
-          <span>ログイン時に自動起動</span>
+          <span data-i18n="field.autoLaunch"></span>
         </label>
         <label>
-          <span class="lbl">ホバー判定（ms）</span>
+          <span class="lbl" data-i18n="field.dwell"></span>
           <input type="number" id="f-dwell" min="100" max="2000" step="50" />
         </label>
         <label>
-          <span class="lbl">展開時の太さ（px）</span>
+          <span class="lbl" data-i18n="field.expanded"></span>
           <input type="number" id="f-expanded" min="24" max="200" step="4" />
         </label>
       </div>
@@ -107,12 +114,12 @@
     <ul id="errors" hidden></ul>
     <div class="actions">
       <div class="io-actions">
-        <button type="button" id="export">エクスポート</button>
-        <button type="button" id="import">インポート</button>
+        <button type="button" id="export" data-i18n="btn.export"></button>
+        <button type="button" id="import" data-i18n="btn.import"></button>
       </div>
       <div class="commit-actions">
         <span id="status" role="status"></span>
-        <button type="button" id="save" class="primary">保存して適用</button>
+        <button type="button" id="save" class="primary" data-i18n="btn.save"></button>
       </div>
     </div>
   </footer>

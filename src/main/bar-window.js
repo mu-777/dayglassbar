@@ -16,6 +16,7 @@ import path from 'node:path';
 import { BrowserWindow, screen, app } from 'electron';
 import { getBarState } from '../core/schedule.js';
 import { computeBarBounds, pointInBounds } from '../core/geometry.js';
+import { t, DEFAULT_LANGUAGE } from '../core/i18n.js';
 
 const POLL_IDLE_MS = 250;
 const POLL_NEAR_MS = 60;
@@ -136,7 +137,11 @@ export function createBarController({ store, timeSource }) {
       raise(); // re-assert top-most immediately on show; poll() keeps it raised after
     }
     lastMode = state.mode;
-    win.webContents.send('bar:state', { state, appearance: ap, expanded });
+    // The bar renderer holds no language logic: it gets its few words from here,
+    // localized to the current setting (CLAUDE.md invariant #3 — text only on hover).
+    const lang = settings.language || DEFAULT_LANGUAGE;
+    const strings = { outside: t(lang, 'bar.outside'), remainingFmt: t(lang, 'bar.remainingFmt') };
+    win.webContents.send('bar:state', { state, appearance: ap, expanded, strings });
   }
 
   function setExpanded(next) {

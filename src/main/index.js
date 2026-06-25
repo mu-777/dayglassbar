@@ -8,17 +8,7 @@ import { createAppTray } from './tray.js';
 import { timeSourceFromEnv, isSimulated } from '../core/time-source.js';
 import { validateSettings } from '../core/validate.js';
 import { getActiveDaySummary, formatMinutes, dateKeyOf } from '../core/schedule.js';
-
-// Long-form weekday labels for the tray summary (Date#getDay() / WEEKDAY_KEYS order).
-const WEEKDAY_LABELS = {
-  sun: '日曜',
-  mon: '月曜',
-  tue: '火曜',
-  wed: '水曜',
-  thu: '木曜',
-  fri: '金曜',
-  sat: '土曜',
-};
+import { t, LANGUAGES, DEFAULT_LANGUAGE, MESSAGES, LANGUAGE_NAMES } from '../core/i18n.js';
 
 // Single instance (spec 4.5). A second launch just opens the settings window
 // of the running instance.
@@ -33,6 +23,10 @@ function main() {
   let store;
   let bar;
   let trayCtl;
+
+  // Active UI language (from settings; defaults to English) and a bound translator.
+  const lang = () => store.get().language || DEFAULT_LANGUAGE;
+  const tr = (key, params) => t(lang(), key, params);
 
   app.on('second-instance', () => openSettingsWindow());
   // Tray-resident app: closing the settings window must not quit (spec 4.5).
@@ -50,6 +44,7 @@ function main() {
       onOpenSettings: () => openSettingsWindow(),
       onQuit: () => app.quit(),
       getSummary: summaryLine,
+      getLabels: () => ({ settings: tr('tray.settings'), quit: tr('tray.quit') }),
     });
 
     registerIpc();
@@ -69,13 +64,13 @@ function main() {
     // started the previous day (e.g. Mon 02:00 inside Sun 9:00–27:00 shows 日曜),
     // not just the naive calendar-today record.
     const s = getActiveDaySummary(store.get().schedule, timeSource.now());
-    const sim = isSimulated(process.env) ? '［時刻シミュレーション中］' : '';
-    if (!s.enabled) return `今日: 休み ${sim}`.trim();
-    const range = `${formatMinutes(s.startMin)}〜${formatMinutes(s.endMin)}`;
+    const sim = isSimulated(process.env) ? tr('tray.simNotice') : '';
+    if (!s.enabled) return `${tr('tray.today')}: ${tr('tray.dayOff')} ${sim}`.trim();
+    const range = `${formatMinutes(s.startMin)}${tr('sep.range')}${formatMinutes(s.endMin)}`;
     // When a previous-day overnight interval is still running, name its source day
-    // instead of saying "今日".
+    // instead of saying "today".
     const isToday = s.dateKey === dateKeyOf(new Date(timeSource.now()));
-    const prefix = isToday ? '今日' : WEEKDAY_LABELS[s.weekdayKey];
+    const prefix = isToday ? tr('tray.today') : tr(`weekday.long.${s.weekdayKey}`);
     return `${prefix}: ${range} ${sim}`.trim();
   }
 
@@ -92,14 +87,23 @@ function main() {
       if (result.ok) store.save(candidate); // store.onChange fans out to the bar etc.
       return result;
     });
+    // Whole catalog (all languages) so the settings UI can switch language live.
+    ipcMain.handle('i18n:catalog', () => ({
+      languages: LANGUAGES,
+      defaultLanguage: DEFAULT_LANGUAGE,
+      languageNames: LANGUAGE_NAMES,
+      messages: MESSAGES,
+    }));
+    // Raw display geometry; the renderer formats the label (so it follows the live language).
     ipcMain.handle('displays:list', () => {
       const primaryId = screen.getPrimaryDisplay().id;
       return screen.getAllDisplays().map((d) => ({
         id: d.id,
         primary: d.id === primaryId,
-        label: `${d.bounds.width}×${d.bounds.height}（${d.bounds.x}, ${d.bounds.y}）${
-          d.id === primaryId ? '・プライマリ' : ''
-        }`,
+        width: d.bounds.width,
+        height: d.bounds.height,
+        x: d.bounds.x,
+        y: d.bounds.y,
       }));
     });
 
@@ -107,7 +111,7 @@ function main() {
     ipcMain.handle('settings:export', async (e) => {
       const parent = BrowserWindow.fromWebContents(e.sender);
       const { canceled, filePath } = await dialog.showSaveDialog(parent, {
-        title: '設定をエクスポート',
+        title: tr('dialog.exportTitle'),
         defaultPath: 'dayglassbar-settings.json',
         filters: [{ name: 'JSON', extensions: ['json'] }],
       });
@@ -116,7 +120,7 @@ function main() {
         fs.writeFileSync(filePath, JSON.stringify(store.get(), null, 2), 'utf8');
         return { ok: true, filePath };
       } catch (err) {
-        return { ok: false, error: `ファイルの書き込みに失敗しました: ${err.message}` };
+        return { ok: false, error: tr('io.writeFail', { msg: err.message }) };
       }
     });
 
@@ -125,7 +129,7 @@ function main() {
     ipcMain.handle('settings:import', async (e) => {
       const parent = BrowserWindow.fromWebContents(e.sender);
       const { canceled, filePaths } = await dialog.showOpenDialog(parent, {
-        title: '設定をインポート',
+        title: tr('dialog.importTitle'),
         properties: ['openFile'],
         filters: [{ name: 'JSON', extensions: ['json'] }],
       });
@@ -134,7 +138,7 @@ function main() {
       try {
         candidate = JSON.parse(fs.readFileSync(filePaths[0], 'utf8'));
       } catch {
-        return { ok: false, error: 'ファイルを読み込めませんでした（JSON 形式が不正です）' };
+        return { ok: false, error: tr('io.readFail') };
       }
       const result = validateSettings(candidate);
       if (!result.ok) return { ok: false, errors: result.errors };

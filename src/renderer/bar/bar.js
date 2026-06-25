@@ -26,9 +26,13 @@
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
+  // The few words the bar shows on hover are localized in the main process and
+  // pushed in the payload (see src/main/bar-window.js). Fall back to English.
+  const FALLBACK_STRINGS = { outside: 'Outside', remainingFmt: '{v} left' };
+
   function render() {
     if (!last) return;
-    const { state, appearance, expanded } = last;
+    const { state, appearance, expanded, strings = FALLBACK_STRINGS } = last;
     const dpr = window.devicePixelRatio || 1;
     const w = window.innerWidth;
     const h = window.innerHeight;
@@ -73,13 +77,13 @@
           else ctx.fillRect(0, f * h - 0.5, w, 1);
         }
       }
-      if (expanded) renderActiveLabels(state, horizontal, w, h);
+      if (expanded) renderActiveLabels(state, strings, horizontal, w, h);
     } else if (expanded) {
       // Outside the interval (track only): label what this strip is.
       if (horizontal) {
-        addLabel('区間外', { right: '6px', top: '50%', transform: 'translateY(-50%)' }).classList.add('hint');
+        addLabel(strings.outside, { right: '6px', top: '50%', transform: 'translateY(-50%)' }).classList.add('hint');
       } else {
-        addLabel('区間外', { bottom: '4px' }, true).classList.add('hint');
+        addLabel(strings.outside, { bottom: '4px' }, true).classList.add('hint');
       }
     }
   }
@@ -93,19 +97,20 @@
     return el;
   }
 
-  function renderActiveLabels(state, horizontal, w, h) {
+  function renderActiveLabels(state, strings, horizontal, w, h) {
     // Labels overlay on top of the full-thickness fill (no room beside it now).
+    const remaining = strings.remainingFmt.replace('{v}', state.labels.remaining);
     if (horizontal) {
       const mid = { top: '50%', transform: 'translateY(-50%)' };
       addLabel(state.labels.start, { left: '6px', ...mid });
       addLabel(state.labels.end, { right: '6px', ...mid });
       const x = Math.min(Math.max(state.nowFrac * w - 40, 64), Math.max(64, w - 200));
-      addLabel(`${state.labels.now}｜残り ${state.labels.remaining}`, { left: `${x}px`, ...mid });
+      addLabel(`${state.labels.now}｜${remaining}`, { left: `${x}px`, ...mid });
     } else {
       addLabel(state.labels.start, { top: '4px' }, true);
       addLabel(state.labels.end, { bottom: '4px' }, true);
       const y = Math.min(Math.max(state.nowFrac * h - 14, 26), h - 40);
-      const nowEl = addLabel(`${state.labels.now}\n残り ${state.labels.remaining}`, { top: `${y}px` }, true);
+      const nowEl = addLabel(`${state.labels.now}\n${remaining}`, { top: `${y}px` }, true);
       nowEl.style.whiteSpace = 'pre-line';
     }
   }

@@ -29,7 +29,7 @@ DAYGLASSBAR_TIME_OFFSET_MIN=120 npm start
 
 | 層 | 場所 | 責務 |
 | --- | --- | --- |
-| core | `src/core/` | 時間モデル(schedule)・検証(validate)・幾何(geometry)・時刻源(time-source)。**Electron/DOM非依存** |
+| core | `src/core/` | 時間モデル(schedule)・検証(validate)・幾何(geometry)・時刻源(time-source)・多言語(i18n)。**Electron/DOM非依存** |
 | main | `src/main/` | エントリ(index)・バー窓(bar-window)・設定窓・トレイ・永続化(store) |
 | preload | `src/preload/` | contextBridge（`.cjs`） |
 | renderer | `src/renderer/bar`, `src/renderer/settings` | バー描画・設定UI |
@@ -37,14 +37,15 @@ DAYGLASSBAR_TIME_OFFSET_MIN=120 npm start
 - 状態の流れ: main が毎秒 `getBarState(schedule, now)` を計算 → `bar:state` で renderer に push → renderer は純粋に描画。
 - 設定の流れ: 設定UI → `settings:save`(IPC) → `validateSettings` OK で `store.save` → `store.onChange` でバーへ即時反映。
 - エクスポート/インポート: `settings:export`/`settings:import`(IPC) は `dialog.show{Save,Open}Dialog` でローカル JSON を読み書き（クラウドなし）。インポートは `validateSettings` OK のときだけ `store.save`、不正/破損時は何も適用せず UI にエラー表示。設定 UI に「開発」セクションは無い（時刻シミュレーションは環境変数専用）。
+- 多言語: 英・日・中（`en`/`ja`/`zh`）対応・**既定は英語**。メッセージ catalog と `t(lang,key,params)` は `src/core/i18n.js`（core＝Electron/DOM 非依存・テスト対象）。main は直接 import、renderer は `i18n:catalog`(IPC) で catalog を受け取り設定UIで言語をライブ切替。`validateSettings` は文言を持たず `{path, code, params}`（`code` は `v.*` キー）を返し、表示側が現在言語で整形する。バーは語を持たず `bar:state.strings`（main が現在言語で同梱）を描く。言語は `settings.language` に永続化。詳細は docs/design.md「多言語対応（i18n）」。
 - IPC一覧・設定スキーマは docs/design.md。
-- 既定値: 全曜日（土日含む）ON / 下地表示 ON / 目盛り表示 ON / 太さ 16px / 辺は右。初回起動が曜日・時刻に関係なく必ず見える変化になることを狙う（`src/main/store.js` の `DEFAULT_SETTINGS`、`test/geometry-store.test.js` で担保）。
+- 既定値: 言語は英語 / 全曜日（土日含む）ON / 下地表示 ON / 目盛り表示 ON / 太さ 16px / 辺は右。初回起動が曜日・時刻に関係なく必ず見える変化になることを狙う（`src/main/store.js` の `DEFAULT_SETTINGS`、`test/geometry-store.test.js` で担保）。
 
 ## 不変条件（変更時に壊さないこと）
 
 1. **時刻は毎回 `timeSource.now()` から再計算**。経過時間の積算をしない（スリープ復帰・時刻変更対応の生命線）。
 2. **core は Electron/DOM に依存させない**。ロジック追加時は `test/` にユニットテストを足す。
-3. **通常時はテキストを出さない**。数値・時刻はホバー展開時のラベルのみ（アンビエント性）。
+3. **通常時はテキストを出さない**。数値・時刻はホバー展開時のラベルのみ（アンビエント性）。**ユーザー可視文字列はハードコードせず `src/core/i18n.js` の catalog 経由**（英・日・中の全言語に同じキーを追加。`test/i18n.test.js` がキー集合の一致を担保）。
 4. **「促すが、急かさない」**。色変化・点滅・通知・カウントダウン音などの「急かす」表現を足さない。減るのは塗りの長さのみ・色は一定。
 5. **配置は `workArea` 基準**（タスクバー/Dock/メニューバーを避ける）。
 6. **常時クリックスルー維持**（`setIgnoreMouseEvents(true,{forward:true})` を生成時に一度だけ設定）。展開中も入力を受けず素通しする（バーのクリックでは設定を開かない＝背後アプリの操作を奪わない。設定はトレイから）。

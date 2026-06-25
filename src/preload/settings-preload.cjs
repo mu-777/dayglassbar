@@ -4,6 +4,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
+  getI18n: () => ipcRenderer.invoke('i18n:catalog'),
   validateSettings: (settings) => ipcRenderer.invoke('settings:validate', settings),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
   listDisplays: () => ipcRenderer.invoke('displays:list'),

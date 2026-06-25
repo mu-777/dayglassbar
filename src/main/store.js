@@ -2,9 +2,11 @@
 // the caller (src/main/index.js) supplies the directory (app.getPath('userData')).
 import fs from 'node:fs';
 import path from 'node:path';
+import { DEFAULT_LANGUAGE } from '../core/i18n.js';
 
 export const DEFAULT_SETTINGS = {
   version: 1,
+  language: DEFAULT_LANGUAGE, // 'en' | 'ja' | 'zh' — UI language (default English)
   schedule: {
     weekly: {
       mon: defaultWorkday(),

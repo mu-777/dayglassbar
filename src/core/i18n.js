@@ -1,0 +1,369 @@
+// DayGlassBar i18n. Pure logic — no Electron / DOM (CLAUDE.md invariant #2), so it
+// is shared by the main process (tray, dialogs, bar payload) AND the renderers.
+// Renderers cannot import this over file:// (Chromium blocks ESM imports there), so
+// main ships the catalog to them via the `i18n:catalog` IPC; main/core import directly.
+//
+// The default language is English (DEFAULT_LANGUAGE). Validation in src/core/validate.js
+// emits language-agnostic { code, params }; the strings live here under the `v.*` keys
+// and are formatted where they are displayed.
+
+export const LANGUAGES = ['en', 'ja', 'zh'];
+export const DEFAULT_LANGUAGE = 'en';
+
+// Endonyms shown in the language picker regardless of the current UI language.
+export const LANGUAGE_NAMES = { en: 'English', ja: '日本語', zh: '中文' };
+
+export function isLanguage(lang) {
+  return LANGUAGES.includes(lang);
+}
+
+export const MESSAGES = {
+  en: {
+    'app.tagline': "Your day's remaining time, at the edge of your screen.",
+
+    'settings.windowTitle': 'DayGlassBar Settings',
+    'settings.general': 'General',
+    'settings.schedule': 'Schedule',
+    'settings.scheduleNote':
+      'End times past midnight use over-24h notation like <code>25:00</code> (e.g. 13:00–25:00 = until 1:00 the next day; the interval belongs to its start date). Breaks show in gray on the remaining side and disappear together with elapsed time once past.',
+    'settings.overrides': 'Date overrides',
+    'settings.overridesNote':
+      'Listed dates take priority over the weekly defaults. To make a day off, uncheck "Enabled".',
+    'settings.addOverride': 'Override this date',
+    'settings.appearance': 'Appearance',
+    'settings.behavior': 'Behavior',
+
+    'field.language': 'Language',
+    'field.display': 'Display',
+    'field.edge': 'Edge',
+    'field.thickness': 'Thickness (px)',
+    'field.color': 'Color',
+    'field.opacity': 'Opacity',
+    'field.breakColor': 'Break color',
+    'field.track': 'Show track (faint full-axis backing)',
+    'field.trackOpacity': 'Track opacity',
+    'field.ticks': 'Show ticks',
+    'field.ticksInterval': 'Tick interval (min)',
+    'field.autoLaunch': 'Launch at login',
+    'field.dwell': 'Hover delay (ms)',
+    'field.expanded': 'Expanded thickness (px)',
+
+    'edge.top': 'Top',
+    'edge.bottom': 'Bottom',
+    'edge.left': 'Left',
+    'edge.right': 'Right',
+
+    'label.enabled': 'Enabled',
+    'btn.addBreak': '+ Break',
+    'btn.export': 'Export',
+    'btn.import': 'Import',
+    'btn.save': 'Save & apply',
+    'title.removeBreak': 'Remove this break',
+    'title.removeOverride': 'Remove this override',
+    'option.displayAuto': 'Primary (auto)',
+    'displays.primarySuffix': ' · Primary',
+    'sep.range': '–',
+
+    'status.saved': 'Saved and applied.',
+    'status.saveFailed': "Couldn't save (check the errors).",
+    'status.exported': 'Exported.',
+    'status.exportFailed': 'Export failed ({error}).',
+    'status.imported': 'Imported and applied.',
+    'status.importFailed': 'Import failed (check the errors).',
+    'error.unknown': 'Unknown error',
+    'error.importGeneric': "Couldn't import.",
+
+    'weekday.short.mon': 'Mon',
+    'weekday.short.tue': 'Tue',
+    'weekday.short.wed': 'Wed',
+    'weekday.short.thu': 'Thu',
+    'weekday.short.fri': 'Fri',
+    'weekday.short.sat': 'Sat',
+    'weekday.short.sun': 'Sun',
+    'weekday.long.mon': 'Monday',
+    'weekday.long.tue': 'Tuesday',
+    'weekday.long.wed': 'Wednesday',
+    'weekday.long.thu': 'Thursday',
+    'weekday.long.fri': 'Friday',
+    'weekday.long.sat': 'Saturday',
+    'weekday.long.sun': 'Sunday',
+
+    'bar.outside': 'Outside',
+    'bar.remainingFmt': '{v} left',
+
+    'tray.settings': 'Settings…',
+    'tray.quit': 'Quit',
+    'tray.today': 'Today',
+    'tray.dayOff': 'Off',
+    'tray.simNotice': '[time simulation]',
+
+    'dialog.exportTitle': 'Export settings',
+    'dialog.importTitle': 'Import settings',
+    'io.writeFail': 'Failed to write the file: {msg}',
+    'io.readFail': "Couldn't read the file (invalid JSON).",
+
+    'v.scheduleMissing': 'Schedule is missing.',
+    'v.startFormat': '{label}: invalid start time (e.g. 9:00).',
+    'v.endFormat': '{label}: invalid end time (e.g. 17:00; for overnight use over-24h like 25:00).',
+    'v.startBefore24': '{label}: start must be before 24:00.',
+    'v.endAfterStart': '{label}: end must be after start (for overnight use over-24h like 25:00).',
+    'v.spanUnder24': '{label}: the interval must be under 24 hours.',
+    'v.breakFormat': '{label}: break {index} has an invalid time format.',
+    'v.breakOrder': '{label}: break {index} start must be before its end.',
+    'v.breakOutside': '{label}: break {index} is outside the interval.',
+    'v.breaksOverlap': '{label}: breaks overlap each other.',
+    'v.overrideDateFormat': '{label}: invalid date format (YYYY-MM-DD).',
+    'v.overrideLabelPrefix': 'Override',
+    'v.weeklyOverlap': "{a}'s interval overlaps the next day's ({b}).",
+    'v.overridePrevOverlap': "{label}: overlaps the previous day's interval.",
+    'v.overrideNextOverlap': "{label}: overlaps the next day's interval.",
+    'v.edge': 'Invalid edge.',
+    'v.thickness': 'Thickness must be 1–64 px.',
+    'v.color': 'Color must be in #RRGGBB form.',
+    'v.breakColor': 'Break color must be in #RRGGBB form.',
+    'v.opacity': 'Opacity must be 0.05–1.',
+    'v.track': 'Invalid track settings.',
+    'v.ticks': 'Tick interval must be 5–720 minutes.',
+    'v.dwell': 'Hover delay must be 100–2000 ms.',
+    'v.expanded': 'Expanded thickness must be 24–200 px.',
+    'v.autoLaunch': 'Invalid auto-launch setting.',
+    'v.language': 'Invalid language setting.',
+  },
+
+  ja: {
+    'app.tagline': '一日の残り時間を、画面の縁で。',
+
+    'settings.windowTitle': 'DayGlassBar 設定',
+    'settings.general': '全般',
+    'settings.schedule': 'スケジュール',
+    'settings.scheduleNote':
+      '日跨ぎは終了を <code>25:00</code> のように24時超で表記します（例: 13:00〜25:00 = 翌1:00まで。区間はその開始日に帰属）。休憩は「残り側」にグレーで表示され、過ぎた休憩は経過分と一緒に消えます。',
+    'settings.overrides': '特定日の上書き',
+    'settings.overridesNote':
+      '指定した日は曜日設定より優先されます。休みにしたい日は「有効」を外してください。',
+    'settings.addOverride': 'この日を上書き',
+    'settings.appearance': '表示',
+    'settings.behavior': '動作',
+
+    'field.language': '言語',
+    'field.display': 'ディスプレイ',
+    'field.edge': '辺',
+    'field.thickness': '太さ（px）',
+    'field.color': '色',
+    'field.opacity': '不透明度',
+    'field.breakColor': '休憩の色',
+    'field.track': '下地を表示（軸全長のうす表示）',
+    'field.trackOpacity': '下地の濃さ',
+    'field.ticks': '目盛りを表示',
+    'field.ticksInterval': '目盛り間隔（分）',
+    'field.autoLaunch': 'ログイン時に自動起動',
+    'field.dwell': 'ホバー判定（ms）',
+    'field.expanded': '展開時の太さ（px）',
+
+    'edge.top': '上',
+    'edge.bottom': '下',
+    'edge.left': '左',
+    'edge.right': '右',
+
+    'label.enabled': '有効',
+    'btn.addBreak': '+ 休憩',
+    'btn.export': 'エクスポート',
+    'btn.import': 'インポート',
+    'btn.save': '保存して適用',
+    'title.removeBreak': 'この休憩を削除',
+    'title.removeOverride': 'この上書きを削除',
+    'option.displayAuto': 'プライマリ（自動）',
+    'displays.primarySuffix': '・プライマリ',
+    'sep.range': '〜',
+
+    'status.saved': '保存して適用しました',
+    'status.saveFailed': '保存できませんでした（エラーを確認してください）',
+    'status.exported': 'エクスポートしました',
+    'status.exportFailed': 'エクスポートできませんでした（{error}）',
+    'status.imported': 'インポートして適用しました',
+    'status.importFailed': 'インポートできませんでした（エラーを確認してください）',
+    'error.unknown': '不明なエラー',
+    'error.importGeneric': 'インポートできませんでした',
+
+    'weekday.short.mon': '月',
+    'weekday.short.tue': '火',
+    'weekday.short.wed': '水',
+    'weekday.short.thu': '木',
+    'weekday.short.fri': '金',
+    'weekday.short.sat': '土',
+    'weekday.short.sun': '日',
+    'weekday.long.mon': '月曜',
+    'weekday.long.tue': '火曜',
+    'weekday.long.wed': '水曜',
+    'weekday.long.thu': '木曜',
+    'weekday.long.fri': '金曜',
+    'weekday.long.sat': '土曜',
+    'weekday.long.sun': '日曜',
+
+    'bar.outside': '区間外',
+    'bar.remainingFmt': '残り {v}',
+
+    'tray.settings': '設定...',
+    'tray.quit': '終了',
+    'tray.today': '今日',
+    'tray.dayOff': '休み',
+    'tray.simNotice': '［時刻シミュレーション中］',
+
+    'dialog.exportTitle': '設定をエクスポート',
+    'dialog.importTitle': '設定をインポート',
+    'io.writeFail': 'ファイルの書き込みに失敗しました: {msg}',
+    'io.readFail': 'ファイルを読み込めませんでした（JSON 形式が不正です）',
+
+    'v.scheduleMissing': 'スケジュールがありません',
+    'v.startFormat': '{label}: 開始時刻の形式が不正です（例: 9:00）',
+    'v.endFormat': '{label}: 終了時刻の形式が不正です（例: 17:00。日跨ぎは 25:00 のように24時超表記）',
+    'v.startBefore24': '{label}: 開始は 24:00 未満で指定してください',
+    'v.endAfterStart': '{label}: 終了は開始より後にしてください（日跨ぎは 25:00 のように24時超表記）',
+    'v.spanUnder24': '{label}: 区間は24時間未満にしてください',
+    'v.breakFormat': '{label}: 休憩{index}の時刻形式が不正です',
+    'v.breakOrder': '{label}: 休憩{index}は開始<終了にしてください',
+    'v.breakOutside': '{label}: 休憩{index}が区間（開始〜終了）の外にあります',
+    'v.breaksOverlap': '{label}: 休憩同士が重なっています',
+    'v.overrideDateFormat': '{label}: 日付の形式が不正です（YYYY-MM-DD）',
+    'v.overrideLabelPrefix': '特定日',
+    'v.weeklyOverlap': '{a}の区間が翌{b}の区間と重なっています',
+    'v.overridePrevOverlap': '{label}: 前日の区間と重なっています',
+    'v.overrideNextOverlap': '{label}: 翌日の区間と重なっています',
+    'v.edge': '辺の指定が不正です',
+    'v.thickness': '太さは 1〜64 px で指定してください',
+    'v.color': '色は #RRGGBB 形式で指定してください',
+    'v.breakColor': '休憩の色は #RRGGBB 形式で指定してください',
+    'v.opacity': '不透明度は 0.05〜1 で指定してください',
+    'v.track': '下地の設定が不正です',
+    'v.ticks': '目盛り間隔は 5〜720 分で指定してください',
+    'v.dwell': 'ホバー判定時間は 100〜2000 ms で指定してください',
+    'v.expanded': '展開時の太さは 24〜200 px で指定してください',
+    'v.autoLaunch': '自動起動の設定が不正です',
+    'v.language': '言語の設定が不正です',
+  },
+
+  zh: {
+    'app.tagline': '在屏幕边缘，呈现一天的剩余时间。',
+
+    'settings.windowTitle': 'DayGlassBar 设置',
+    'settings.general': '常规',
+    'settings.schedule': '日程',
+    'settings.scheduleNote':
+      '跨夜的结束时间使用超过24小时的表示法，如 <code>25:00</code>（例：13:00–25:00 = 到次日 1:00；区间归属于其开始日期）。休息以灰色显示在“剩余”一侧，已过去的休息会随已用时间一起消失。',
+    'settings.overrides': '特定日期覆盖',
+    'settings.overridesNote':
+      '指定的日期优先于每周设置。要设为休息日，请取消勾选“启用”。',
+    'settings.addOverride': '覆盖此日期',
+    'settings.appearance': '外观',
+    'settings.behavior': '行为',
+
+    'field.language': '语言',
+    'field.display': '显示器',
+    'field.edge': '边',
+    'field.thickness': '粗细（px）',
+    'field.color': '颜色',
+    'field.opacity': '不透明度',
+    'field.breakColor': '休息颜色',
+    'field.track': '显示底纹（沿整条轴的淡色背景）',
+    'field.trackOpacity': '底纹浓度',
+    'field.ticks': '显示刻度',
+    'field.ticksInterval': '刻度间隔（分钟）',
+    'field.autoLaunch': '登录时自动启动',
+    'field.dwell': '悬停判定（ms）',
+    'field.expanded': '展开时粗细（px）',
+
+    'edge.top': '上',
+    'edge.bottom': '下',
+    'edge.left': '左',
+    'edge.right': '右',
+
+    'label.enabled': '启用',
+    'btn.addBreak': '+ 休息',
+    'btn.export': '导出',
+    'btn.import': '导入',
+    'btn.save': '保存并应用',
+    'title.removeBreak': '删除此休息',
+    'title.removeOverride': '删除此覆盖',
+    'option.displayAuto': '主显示器（自动）',
+    'displays.primarySuffix': ' · 主显示器',
+    'sep.range': '–',
+
+    'status.saved': '已保存并应用。',
+    'status.saveFailed': '保存失败（请检查错误）。',
+    'status.exported': '已导出。',
+    'status.exportFailed': '导出失败（{error}）。',
+    'status.imported': '已导入并应用。',
+    'status.importFailed': '导入失败（请检查错误）。',
+    'error.unknown': '未知错误',
+    'error.importGeneric': '导入失败。',
+
+    'weekday.short.mon': '一',
+    'weekday.short.tue': '二',
+    'weekday.short.wed': '三',
+    'weekday.short.thu': '四',
+    'weekday.short.fri': '五',
+    'weekday.short.sat': '六',
+    'weekday.short.sun': '日',
+    'weekday.long.mon': '周一',
+    'weekday.long.tue': '周二',
+    'weekday.long.wed': '周三',
+    'weekday.long.thu': '周四',
+    'weekday.long.fri': '周五',
+    'weekday.long.sat': '周六',
+    'weekday.long.sun': '周日',
+
+    'bar.outside': '区间外',
+    'bar.remainingFmt': '剩余 {v}',
+
+    'tray.settings': '设置…',
+    'tray.quit': '退出',
+    'tray.today': '今天',
+    'tray.dayOff': '休息',
+    'tray.simNotice': '［时间模拟中］',
+
+    'dialog.exportTitle': '导出设置',
+    'dialog.importTitle': '导入设置',
+    'io.writeFail': '写入文件失败：{msg}',
+    'io.readFail': '无法读取文件（JSON 格式不正确）。',
+
+    'v.scheduleMissing': '缺少日程。',
+    'v.startFormat': '{label}：开始时间格式不正确（例：9:00）。',
+    'v.endFormat': '{label}：结束时间格式不正确（例：17:00；跨夜请用 25:00 这样的超24小时表示）。',
+    'v.startBefore24': '{label}：开始须早于 24:00。',
+    'v.endAfterStart': '{label}：结束须晚于开始（跨夜请用 25:00 这样的超24小时表示）。',
+    'v.spanUnder24': '{label}：区间须小于 24 小时。',
+    'v.breakFormat': '{label}：休息{index}的时间格式不正确。',
+    'v.breakOrder': '{label}：休息{index}的开始须早于结束。',
+    'v.breakOutside': '{label}：休息{index}超出了区间（开始〜结束）。',
+    'v.breaksOverlap': '{label}：休息之间相互重叠。',
+    'v.overrideDateFormat': '{label}：日期格式不正确（YYYY-MM-DD）。',
+    'v.overrideLabelPrefix': '特定日期',
+    'v.weeklyOverlap': '{a}的区间与次日{b}的区间重叠。',
+    'v.overridePrevOverlap': '{label}：与前一天的区间重叠。',
+    'v.overrideNextOverlap': '{label}：与次日的区间重叠。',
+    'v.edge': '边的设置不正确。',
+    'v.thickness': '粗细须为 1〜64 px。',
+    'v.color': '颜色须为 #RRGGBB 格式。',
+    'v.breakColor': '休息颜色须为 #RRGGBB 格式。',
+    'v.opacity': '不透明度须为 0.05〜1。',
+    'v.track': '底纹设置不正确。',
+    'v.ticks': '刻度间隔须为 5〜720 分钟。',
+    'v.dwell': '悬停判定时间须为 100〜2000 ms。',
+    'v.expanded': '展开时粗细须为 24〜200 px。',
+    'v.autoLaunch': '自动启动设置不正确。',
+    'v.language': '语言设置不正确。',
+  },
+};
+
+// Look up `key` for `lang`, falling back to English then the raw key. `params`
+// values fill {token} placeholders.
+export function t(lang, key, params) {
+  const table = MESSAGES[lang] || MESSAGES[DEFAULT_LANGUAGE];
+  let s = table[key];
+  if (s == null) s = MESSAGES[DEFAULT_LANGUAGE][key];
+  if (s == null) return key;
+  if (params) {
+    s = s.replace(/\{(\w+)\}/g, (m, k) => (params[k] != null ? String(params[k]) : m));
+  }
+  return s;
+}

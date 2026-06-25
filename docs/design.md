@@ -65,15 +65,17 @@
 | `settings:save` | invoke | 検証OKなら保存（→onChangeでバー即時反映） |
 | `settings:export` | invoke | `showSaveDialog` で選んだ JSON ファイルへ現在の設定を書き出す（ローカルファイルのみ） |
 | `settings:import` | invoke | `showOpenDialog` で選んだ JSON を読み、`validateSettings` OK なら `store.save`（→onChangeで反映）。不正/破損時は何も適用しない |
-| `displays:list` | invoke | ディスプレイ一覧（id/primary/label） |
+| `i18n:catalog` | invoke | 全言語のメッセージ catalog（`{languages, defaultLanguage, languageNames, messages}`）を返す。設定 UI が言語をライブ切替するため |
+| `displays:list` | invoke | ディスプレイ一覧（`{id, primary, width, height, x, y}` の生データ。ラベル文字列は renderer が現在言語で組み立てる） |
 | `bar:open-settings` | send | バーから設定画面を開く |
-| `bar:state` | main→renderer | 毎秒の描画状態（state/appearance/expanded） |
+| `bar:state` | main→renderer | 毎秒の描画状態（`state/appearance/expanded/strings`。`strings` は現在言語の「区間外」「残り …」ラベル） |
 
 ## 設定スキーマ（`src/main/store.js` の DEFAULT_SETTINGS）
 
 ```jsonc
 {
   "version": 1,
+  "language": "en", // 'en' | 'ja' | 'zh'。既定は英語。UI 全体（設定/トレイ/バーのホバーラベル）の言語
   "schedule": {
     // 既定では月〜日すべて defaultWorkday()（9:00〜17:00・昼休憩）= 土日も ON。
     // → 初回起動が曜日に関係なく必ず見える変化になる。
@@ -103,11 +105,20 @@
 - ボタン配置は設定画面フッターを `justify-content: space-between` の1行にし、**左に「エクスポート」「インポート」**、**右にコミット系（ステータス＋「保存して適用」）**を置く。コミット操作（保存して適用）への誤クリックを避けるための分離。
 - 設定 UI に「開発」セクションは置かない。時刻シミュレーションは環境変数（`DAYGLASSBAR_FAKE_NOW`/`DAYGLASSBAR_TIME_SCALE`/`DAYGLASSBAR_TIME_OFFSET_MIN`）専用（spec §7 / `src/core/time-source.js`）。
 
+## 多言語対応（i18n）
+
+- 対応言語は **英・日・中（`en`/`ja`/`zh`）。既定は英語**（`src/core/i18n.js` の `DEFAULT_LANGUAGE`、`store.js` の `DEFAULT_SETTINGS.language`）。
+- catalog（全言語のメッセージ）と `t(lang, key, params)` は `src/core/i18n.js` に集約。**core なので Electron/DOM 非依存・テスト対象**（`test/i18n.test.js` が「全言語が同一キー集合を持つ」ことを担保）。
+- main は `i18n.js` を直接 import して使う（トレイ・ダイアログ・`bar:state` の `strings`・I/O エラー文言）。
+- renderer は **`file://` 越しの ESM import が Chromium にブロックされる**ため、`i18n:catalog`（IPC）で catalog 全体を受け取り、renderer 内の軽量 `t()` で描画する。これにより**言語ドロップダウンの切替を保存せずライブ反映**できる（`collect()` で入力中の値を退避→言語を差し替えて再描画）。
+- 検証メッセージは locale を持たせない: `validateSettings` は `{path, code, params}`（`code` は `v.*` の i18n キー）を返し、表示側（設定 UI）が現在言語で整形する。曜日名・特定日ラベルも `params`（`{labelKind, dayKey|date, index}`）から表示側で組み立てる。
+- バーは言語ロジックを持たない（不変条件 #3 のホバーラベルのみ）。必要な語（`区間外`/`残り {v}`）は main が `bar:state.strings` に載せて渡す。
+
 ## モジュール構成と責務
 
 | 層 | 場所 | 責務 | Electron依存 |
 | --- | --- | --- | --- |
-| core | `src/core/` | 時間モデル・検証・ジオメトリ・時刻源 | **なし（テスト対象）** |
+| core | `src/core/` | 時間モデル・検証・ジオメトリ・時刻源・i18n | **なし（テスト対象）** |
 | main | `src/main/` | ウィンドウ・トレイ・IPC・永続化・自動起動 | あり |
 | preload | `src/preload/` | contextBridge（CJS） | あり |
 | renderer | `src/renderer/` | 描画・設定UI（純描画/DOM） | なし |

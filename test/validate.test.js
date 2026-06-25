@@ -109,6 +109,29 @@ test('bad override date key is rejected', () => {
   assert.equal(validateSettings(s).ok, false);
 });
 
+test('language: absent is fine, a known code is fine, an unknown code is rejected', () => {
+  const a = base(); // no language field
+  assert.equal(validateSettings(a).ok, true);
+
+  const b = base();
+  b.language = 'zh';
+  assert.equal(validateSettings(b).ok, true);
+
+  const c = base();
+  c.language = 'fr';
+  const r = validateSettings(c);
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.some((e) => e.path === 'language'));
+});
+
+test('errors carry a code (language-agnostic), not a pre-formatted message', () => {
+  const s = base();
+  s.schedule.weekly.mon = { enabled: true, start: '17:00', end: '9:00', breaks: [] };
+  const e = validateSettings(s).errors.find((x) => x.path === 'schedule.weekly.mon');
+  assert.equal(e.code, 'v.endAfterStart');
+  assert.deepEqual(e.params, { labelKind: 'weekday', dayKey: 'mon' });
+});
+
 test('appearance bounds', () => {
   const a = base();
   a.appearance.thickness = 0;

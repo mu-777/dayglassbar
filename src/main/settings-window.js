@@ -14,7 +14,7 @@ export function openSettingsWindow() {
     height: 700,
     minWidth: 660,
     minHeight: 480,
-    title: 'DayGlassBar 設定',
+    title: 'DayGlassBar', // the renderer sets document.title to the localized title once loaded
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(app.getAppPath(), 'src', 'preload', 'settings-preload.cjs'),

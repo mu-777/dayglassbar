@@ -1,17 +1,38 @@
 // Settings UI. Dumb on purpose: collects form values into the settings shape and
 // asks the main process to validate + save (single source of truth in src/core).
+// Localization: the whole i18n catalog (all languages) is fetched once via the
+// preload bridge; switching the language dropdown re-renders the form live (the
+// in-progress edits are captured with collect() and re-applied) without saving.
 (() => {
-  const WEEK = [
-    ['mon', '月'],
-    ['tue', '火'],
-    ['wed', '水'],
-    ['thu', '木'],
-    ['fri', '金'],
-    ['sat', '土'],
-    ['sun', '日'],
-  ];
+  const WEEK = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const $ = (sel) => document.querySelector(sel);
   const weeklyEditors = {};
+
+  // ---- i18n (catalog shipped from main) ----
+  let MESSAGES = {};
+  let LANGUAGES = ['en'];
+  let LANGUAGE_NAMES = {};
+  let DEFAULT_LANG = 'en';
+  let LANG = 'en';
+  let displays = [];
+
+  function t(key, params) {
+    const table = MESSAGES[LANG] || MESSAGES[DEFAULT_LANG] || {};
+    let s = table[key];
+    if (s == null && MESSAGES[DEFAULT_LANG]) s = MESSAGES[DEFAULT_LANG][key];
+    if (s == null) return key;
+    if (params) s = s.replace(/\{(\w+)\}/g, (m, k) => (params[k] != null ? String(params[k]) : m));
+    return s;
+  }
+
+  // Apply translations to every statically-marked element. Called on first render
+  // and on every live language switch.
+  function applyStaticI18n() {
+    document.documentElement.lang = LANG;
+    document.title = t('settings.windowTitle');
+    for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
+    for (const el of document.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
+  }
 
   function esc(v) {
     return String(v ?? '')
@@ -27,9 +48,9 @@
     row.className = 'break-row';
     row.innerHTML =
       `<input class="b-start time" value="${esc(b.start)}" placeholder="12:00" />` +
-      `<span class="tilde">〜</span>` +
+      `<span class="tilde">${esc(t('sep.range'))}</span>` +
       `<input class="b-end time" value="${esc(b.end)}" placeholder="13:00" />` +
-      `<button type="button" class="remove ghost" title="この休憩を削除">×</button>`;
+      `<button type="button" class="remove ghost" title="${esc(t('title.removeBreak'))}">×</button>`;
     row.querySelector('.remove').addEventListener('click', () => row.remove());
     return row;
   }
@@ -38,13 +59,13 @@
     const el = document.createElement('span');
     el.className = 'day-editor';
     el.innerHTML =
-      `<label class="enabled"><input type="checkbox" class="d-enabled" ${rec.enabled ? 'checked' : ''} /><span>有効</span></label>` +
+      `<label class="enabled"><input type="checkbox" class="d-enabled" ${rec.enabled ? 'checked' : ''} /><span>${esc(t('label.enabled'))}</span></label>` +
       `<span class="when" ${rec.enabled ? '' : 'hidden'}>` +
       `<input class="d-start time" value="${esc(rec.start ?? '9:00')}" placeholder="9:00" />` +
-      `<span class="tilde">〜</span>` +
+      `<span class="tilde">${esc(t('sep.range'))}</span>` +
       `<input class="d-end time" value="${esc(rec.end ?? '17:00')}" placeholder="17:00" />` +
       `<span class="breaks"></span>` +
-      `<button type="button" class="add-break ghost">+ 休憩</button>` +
+      `<button type="button" class="add-break ghost">${esc(t('btn.addBreak'))}</button>` +
       `</span>`;
     const when = el.querySelector('.when');
     const breaks = el.querySelector('.breaks');
@@ -72,12 +93,12 @@
   function buildWeekly(weekly) {
     const root = $('#weekly');
     root.textContent = '';
-    for (const [key, label] of WEEK) {
+    for (const key of WEEK) {
       const row = document.createElement('div');
       row.className = 'week-row';
       const name = document.createElement('span');
       name.className = 'day-name';
-      name.textContent = label;
+      name.textContent = t(`weekday.short.${key}`);
       const editor = dayEditor(weekly[key]);
       weeklyEditors[key] = editor;
       row.append(name, editor);
@@ -100,7 +121,7 @@
     const del = document.createElement('button');
     del.type = 'button';
     del.className = 'ghost remove';
-    del.title = 'この上書きを削除';
+    del.title = t('title.removeOverride');
     del.textContent = '×';
     del.addEventListener('click', () => row.remove());
     row.append(name, editor, del);
@@ -109,16 +130,17 @@
     root.insertBefore(row, after ?? null);
   }
 
-  // ---- collect / load / save ----
+  // ---- collect / render / save ----
   function collect() {
     const weekly = {};
-    for (const [key] of WEEK) weekly[key] = weeklyEditors[key].readValue();
+    for (const key of WEEK) weekly[key] = weeklyEditors[key].readValue();
     const overrides = {};
     for (const row of document.querySelectorAll('#overrides .override-row')) {
       overrides[row.dataset.date] = row.editor.readValue();
     }
     return {
       version: 1,
+      language: $('#f-language').value,
       schedule: { weekly, overrides },
       appearance: {
         displayId: $('#f-display').value === '' ? null : Number($('#f-display').value),
@@ -140,12 +162,26 @@
     };
   }
 
+  // Turn a language-agnostic validation error ({ code, params }) into a localized
+  // string. The label (a weekday or an override date) is composed here.
+  function formatError(e) {
+    if (!e.code) return e.message || ''; // plain string errors (e.g. file I/O)
+    const p = e.params || {};
+    const params = { ...p };
+    if (p.labelKind === 'weekday') params.label = t(`weekday.long.${p.dayKey}`);
+    else if (p.labelKind === 'date') params.label = `${t('v.overrideLabelPrefix')} ${p.date}`;
+    if (p.dayKeyA) params.a = t(`weekday.long.${p.dayKeyA}`);
+    if (p.dayKeyB) params.b = t(`weekday.long.${p.dayKeyB}`);
+    if (p.index != null) params.index = p.index + 1;
+    return t(e.code, params);
+  }
+
   function showErrors(errors) {
     const ul = $('#errors');
     ul.textContent = '';
     for (const e of errors) {
       const li = document.createElement('li');
-      li.textContent = e.message;
+      li.textContent = formatError(e);
       ul.appendChild(li);
     }
     ul.hidden = errors.length === 0;
@@ -167,25 +203,43 @@
     $('#v-track-opacity').textContent = Number($('#f-track-opacity').value).toFixed(2);
   }
 
-  async function load() {
-    const [settings, displays] = await Promise.all([window.api.getSettings(), window.api.listDisplays()]);
+  function buildLanguageSelect() {
+    const sel = $('#f-language');
+    sel.textContent = '';
+    for (const code of LANGUAGES) {
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = LANGUAGE_NAMES[code] || code;
+      sel.appendChild(opt);
+    }
+    sel.value = LANG;
+  }
 
+  function buildDisplaySelect(selectedId) {
     const sel = $('#f-display');
     sel.textContent = '';
     const auto = document.createElement('option');
     auto.value = '';
-    auto.textContent = 'プライマリ（自動）';
+    auto.textContent = t('option.displayAuto');
     sel.appendChild(auto);
     for (const d of displays) {
       const opt = document.createElement('option');
       opt.value = String(d.id);
-      opt.textContent = d.label;
+      const suffix = d.primary ? t('displays.primarySuffix') : '';
+      opt.textContent = `${d.width}×${d.height} (${d.x}, ${d.y})${suffix}`;
       sel.appendChild(opt);
     }
+    sel.value = selectedId == null ? '' : String(selectedId);
+    if (sel.selectedIndex < 0) sel.value = ''; // configured display is detached → auto
+  }
+
+  // Render the whole form from a settings object in the current LANG.
+  function render(settings) {
+    applyStaticI18n();
+    buildLanguageSelect();
 
     const ap = settings.appearance;
-    sel.value = ap.displayId == null ? '' : String(ap.displayId);
-    if (sel.selectedIndex < 0) sel.value = ''; // configured display is detached → auto
+    buildDisplaySelect(ap.displayId);
     $('#f-edge').value = ap.edge;
     $('#f-thickness').value = ap.thickness;
     $('#f-color').value = ap.color;
@@ -207,8 +261,30 @@
     }
   }
 
+  async function load() {
+    const [settings, disp, i18n] = await Promise.all([
+      window.api.getSettings(),
+      window.api.listDisplays(),
+      window.api.getI18n(),
+    ]);
+    MESSAGES = i18n.messages;
+    LANGUAGES = i18n.languages;
+    LANGUAGE_NAMES = i18n.languageNames;
+    DEFAULT_LANG = i18n.defaultLanguage;
+    LANG = LANGUAGES.includes(settings.language) ? settings.language : DEFAULT_LANG;
+    displays = disp;
+    render(settings);
+  }
+
   $('#f-opacity').addEventListener('input', syncRangeLabels);
   $('#f-track-opacity').addEventListener('input', syncRangeLabels);
+
+  // Live language preview: capture in-progress edits, switch, re-render. No save.
+  $('#f-language').addEventListener('change', (e) => {
+    const current = collect();
+    LANG = e.target.value;
+    render(current);
+  });
 
   $('#add-override').addEventListener('click', () => {
     const v = $('#override-date').value;
@@ -219,14 +295,14 @@
   $('#save').addEventListener('click', async () => {
     const result = await window.api.saveSettings(collect());
     showErrors(result.errors);
-    setStatus(result.ok ? '保存して適用しました' : '保存できませんでした（エラーを確認してください）');
+    setStatus(result.ok ? t('status.saved') : t('status.saveFailed'));
   });
 
   $('#export').addEventListener('click', async () => {
     const result = await window.api.exportSettings();
     if (result.canceled) return;
     showErrors([]);
-    setStatus(result.ok ? 'エクスポートしました' : `エクスポートできませんでした（${result.error ?? '不明なエラー'}）`);
+    setStatus(result.ok ? t('status.exported') : t('status.exportFailed', { error: result.error ?? t('error.unknown') }));
   });
 
   $('#import').addEventListener('click', async () => {
@@ -234,11 +310,11 @@
     if (result.canceled) return;
     if (result.ok) {
       showErrors([]);
-      await load(); // reflect the imported (now persisted) settings in the form
-      setStatus('インポートして適用しました');
+      await load(); // reflect the imported (now persisted) settings + language in the form
+      setStatus(t('status.imported'));
     } else {
-      showErrors(result.errors ?? [{ message: result.error ?? 'インポートできませんでした' }]);
-      setStatus('インポートできませんでした（エラーを確認してください）');
+      showErrors(result.errors ?? [{ message: result.error ?? t('error.importGeneric') }]);
+      setStatus(t('status.importFailed'));
     }
   });
 
