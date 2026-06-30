@@ -3,7 +3,9 @@ import { BrowserWindow, app } from 'electron';
 
 let win = null;
 
-export function openSettingsWindow() {
+// `firstRun` tells the renderer to show the one-time "settings live in the tray"
+// guide (used when main auto-opens this window on the very first launch).
+export function openSettingsWindow({ firstRun = false } = {}) {
   if (win && !win.isDestroyed()) {
     win.show();
     win.focus();
@@ -22,7 +24,7 @@ export function openSettingsWindow() {
       nodeIntegration: false,
     },
   });
-  win.loadFile('src/renderer/settings/index.html');
+  win.loadFile('src/renderer/settings/index.html', firstRun ? { query: { firstRun: '1' } } : undefined);
   win.on('closed', () => {
     win = null;
   });

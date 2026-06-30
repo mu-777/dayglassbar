@@ -7,6 +7,9 @@
   const WEEK = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
   const $ = (sel) => document.querySelector(sel);
   const weeklyEditors = {};
+  // main opens this window with ?firstRun=1 on the very first launch (see main/index.js):
+  // show the one-time "settings live in the tray" guide.
+  const FIRST_RUN = new URLSearchParams(location.search).get('firstRun') === '1';
 
   // ---- i18n (catalog shipped from main) ----
   let MESSAGES = {};
@@ -15,6 +18,7 @@
   let DEFAULT_LANG = 'en';
   let LANG = 'en';
   let displays = [];
+  let calendarState = { accounts: [], encryptionAvailable: true };
 
   function t(key, params) {
     const table = MESSAGES[LANG] || MESSAGES[DEFAULT_LANG] || {};
@@ -32,6 +36,8 @@
     document.title = t('settings.windowTitle');
     for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
     for (const el of document.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
+    for (const el of document.querySelectorAll('[data-i18n-ph]')) el.placeholder = t(el.dataset.i18nPh);
+    for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
   }
 
   function esc(v) {
@@ -151,6 +157,14 @@
         track: { enabled: $('#f-track').checked, opacity: Number($('#f-track-opacity').value) },
         breakColor: $('#f-break-color').value,
         ticks: { enabled: $('#f-ticks').checked, intervalMinutes: Number($('#f-ticks-interval').value) },
+        calendar: {
+          google: { enabled: $('#f-google-enabled').checked, color: $('#f-google-color').value },
+          outlook: {
+            enabled: $('#f-outlook-enabled').checked,
+            color: $('#f-outlook-color').value,
+            method: outlookMethod(),
+          },
+        },
       },
       behavior: {
         autoLaunch: $('#f-autolaunch').checked,
@@ -215,6 +229,160 @@
     sel.value = LANG;
   }
 
+  // Calendar: per-provider show toggle + color, plus a connection control. OAuth connection
+  // state comes from main (calendar:status) — never settings.json — so tokens stay out of the
+  // exportable settings. Outlook picks ONE method: local COM (no sign-in) or cloud OAuth.
+  const PROVIDER_LABEL = { google: 'Google', microsoft: 'Microsoft' };
+
+  function outlookMethod() {
+    const r = document.querySelector('input[name="outlook-method"]:checked');
+    return r ? r.value : 'local';
+  }
+
+  // Connect/disconnect control for an OAuth providerId, rendered into `container`.
+  // `disabled` greys out the connect action (Outlook cloud is not supported yet).
+  function buildConn(container, providerId, { disabled = false } = {}) {
+    container.textContent = '';
+    const acct = calendarState.accounts.find((a) => a.provider === providerId) || { connected: false };
+    const status = document.createElement('span');
+    status.className = 'cal-status';
+    status.textContent = acct.connected
+      ? t('calendar.connectedAs', { email: acct.email || PROVIDER_LABEL[providerId] })
+      : t('calendar.notConnected');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    if (acct.connected) {
+      btn.className = 'ghost';
+      btn.textContent = t('calendar.disconnect');
+      btn.addEventListener('click', () => onDisconnect(providerId));
+    } else {
+      btn.textContent = t('calendar.connect', { provider: PROVIDER_LABEL[providerId] });
+      btn.addEventListener('click', () => onConnect(providerId, btn));
+      btn.disabled = disabled;
+    }
+    container.append(status, btn);
+  }
+
+  // Render both providers' connection UI from calendarState + the chosen Outlook method, plus
+  // a "choose calendars" picker for each usable source (Google when connected; Outlook local).
+  function renderCalendarConnections() {
+    $('#cal-enc-warn').hidden = calendarState.encryptionAvailable !== false;
+    $('#cal-enc-warn').textContent = t('calendar.encUnavailable');
+    buildConn($('#google-conn'), 'google');
+    const googleConnected = (calendarState.accounts.find((a) => a.provider === 'google') || {}).connected;
+    if (googleConnected) renderCalendarPicker('google', $('#google-cals'));
+    else $('#google-cals').textContent = ''; // a calendar list needs a connected account
+    const method = outlookMethod();
+    $('#outlook-method-hint').textContent = method === 'cloud' ? t('calendar.methodCloudHint') : t('calendar.localOutlookHint');
+    // Cloud (Microsoft Graph OAuth) isn't supported yet: keep the toggle but disable sign-in.
+    if (method === 'cloud') {
+      buildConn($('#outlook-conn'), 'microsoft', { disabled: true });
+      $('#outlook-cals').textContent = ''; // cloud is disabled → no calendar picker
+    } else {
+      $('#outlook-conn').textContent = ''; // local needs no sign-in
+      renderCalendarPicker('outlook-local', $('#outlook-cals'));
+    }
+  }
+
+  // Calendar picker: lazily loads a source's calendar list (a network/COM call, so on a button
+  // press rather than on every settings open) and lets the user check which calendars to show.
+  // Selection is persisted immediately via its own IPC — it lives in the encrypted store, not
+  // settings.json, so it is independent of the Save button. sourceId: 'google' | 'outlook-local'.
+  function renderCalendarPicker(sourceId, container) {
+    container.textContent = '';
+    const note = document.createElement('p');
+    note.className = 'note';
+    note.textContent = t('calendar.calendarsHint');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'ghost';
+    btn.textContent = t('calendar.chooseCalendars');
+    const list = document.createElement('div');
+    list.className = 'cal-list';
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const label = btn.textContent;
+      btn.textContent = t('calendar.loadingCalendars');
+      const result = await window.api.calendarListCalendars(sourceId);
+      btn.disabled = false;
+      btn.textContent = label;
+      renderCalendarList(list, sourceId, result);
+    });
+    container.append(note, btn, list);
+  }
+
+  // Render checkboxes for the loaded calendars; persist (and re-fetch) on every toggle. An empty
+  // selection means "default/primary only", so when nothing is stored yet we pre-check the
+  // primary calendar to mirror what the bar actually shows.
+  function renderCalendarList(list, sourceId, result) {
+    list.textContent = '';
+    if (!result || !result.ok) {
+      const err = document.createElement('p');
+      err.className = 'note warn';
+      err.textContent = t('calendar.loadCalendarsFailed', { error: (result && result.error) || t('error.unknown') });
+      list.appendChild(err);
+      return;
+    }
+    if (!result.calendars || result.calendars.length === 0) {
+      const none = document.createElement('p');
+      none.className = 'note';
+      none.textContent = t('calendar.noCalendars');
+      list.appendChild(none);
+      return;
+    }
+    const selected = result.selected || [];
+    const rows = [];
+    const persist = () => {
+      const ids = rows.filter((r) => r.checkbox.checked).map((r) => r.id);
+      window.api.calendarSetSelection(sourceId, ids);
+      setStatus(t('calendar.calendarsSaved'));
+    };
+    for (const c of result.calendars) {
+      const label = document.createElement('label');
+      label.className = 'check cal-check';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = selected.length ? selected.includes(c.id) : Boolean(c.primary);
+      cb.addEventListener('change', persist);
+      const span = document.createElement('span');
+      span.textContent = c.primary ? `${c.name} ${t('calendar.primaryBadge')}` : c.name;
+      label.append(cb, span);
+      list.appendChild(label);
+      rows.push({ id: c.id, checkbox: cb });
+    }
+  }
+
+  async function onConnect(providerId, btn) {
+    btn.disabled = true;
+    setStatus(t('calendar.connecting'));
+    const result = await window.api.calendarConnect(providerId);
+    if (result.ok) {
+      calendarState.accounts = result.accounts;
+      // main turns the matching overlay on (and pins Outlook to cloud); reflect it here.
+      if (providerId === 'google') $('#f-google-enabled').checked = true;
+      else if (providerId === 'microsoft') {
+        $('#f-outlook-enabled').checked = true;
+        const cloud = document.querySelector('input[name="outlook-method"][value="cloud"]');
+        if (cloud) cloud.checked = true;
+      }
+      showErrors([]);
+      setStatus(t('calendar.connected'));
+    } else {
+      // Persist the reason in the error list (the status line auto-clears after a few seconds).
+      const msg = t('calendar.connectFailed', { error: result.error || t('error.unknown') });
+      showErrors([{ message: msg }]);
+      setStatus(msg);
+    }
+    renderCalendarConnections();
+  }
+
+  async function onDisconnect(providerId) {
+    const result = await window.api.calendarDisconnect(providerId);
+    calendarState.accounts = result.accounts;
+    setStatus(t('calendar.disconnected'));
+    renderCalendarConnections();
+  }
+
   function buildDisplaySelect(selectedId) {
     const sel = $('#f-display');
     sel.textContent = '';
@@ -236,6 +404,7 @@
   // Render the whole form from a settings object in the current LANG.
   function render(settings) {
     applyStaticI18n();
+    $('#onboarding-hint').hidden = !FIRST_RUN; // keep it visible across live language switches
     buildLanguageSelect();
 
     const ap = settings.appearance;
@@ -249,6 +418,16 @@
     $('#f-track-opacity').value = ap.track.opacity;
     $('#f-ticks').checked = ap.ticks.enabled;
     $('#f-ticks-interval').value = ap.ticks.intervalMinutes;
+    const cal = ap.calendar || {};
+    const g = cal.google || { enabled: false, color: '#c98a3a' };
+    const o = cal.outlook || { enabled: false, color: '#4a9e9e', method: 'local' };
+    $('#f-google-enabled').checked = g.enabled;
+    $('#f-google-color').value = g.color;
+    $('#f-outlook-enabled').checked = o.enabled;
+    $('#f-outlook-color').value = o.color;
+    const methodRadio = document.querySelector(`input[name="outlook-method"][value="${o.method === 'cloud' ? 'cloud' : 'local'}"]`);
+    if (methodRadio) methodRadio.checked = true;
+    renderCalendarConnections();
     $('#f-autolaunch').checked = settings.behavior.autoLaunch;
     $('#f-dwell').value = settings.behavior.hover.dwellMs;
     $('#f-expanded').value = settings.behavior.hover.expandedThickness;
@@ -262,10 +441,11 @@
   }
 
   async function load() {
-    const [settings, disp, i18n] = await Promise.all([
+    const [settings, disp, i18n, cal] = await Promise.all([
       window.api.getSettings(),
       window.api.listDisplays(),
       window.api.getI18n(),
+      window.api.calendarStatus(),
     ]);
     MESSAGES = i18n.messages;
     LANGUAGES = i18n.languages;
@@ -273,6 +453,7 @@
     DEFAULT_LANG = i18n.defaultLanguage;
     LANG = LANGUAGES.includes(settings.language) ? settings.language : DEFAULT_LANG;
     displays = disp;
+    calendarState = cal;
     render(settings);
   }
 
@@ -292,6 +473,11 @@
     addOverrideRow(v, { enabled: true, start: '9:00', end: '17:00', breaks: [] });
   });
 
+  // Switching the Outlook method live-updates the hint and shows/hides the sign-in control.
+  for (const r of document.querySelectorAll('input[name="outlook-method"]')) {
+    r.addEventListener('change', renderCalendarConnections);
+  }
+
   $('#save').addEventListener('click', async () => {
     const result = await window.api.saveSettings(collect());
     showErrors(result.errors);
@@ -303,6 +489,13 @@
     if (result.canceled) return;
     showErrors([]);
     setStatus(result.ok ? t('status.exported') : t('status.exportFailed', { error: result.error ?? t('error.unknown') }));
+  });
+
+  $('#diagnostics').addEventListener('click', async () => {
+    const result = await window.api.exportDiagnostics();
+    if (result.canceled) return;
+    showErrors([]);
+    setStatus(result.ok ? t('status.diagnosticsSaved') : t('status.diagnosticsFailed', { error: result.error ?? t('error.unknown') }));
   });
 
   $('#import').addEventListener('click', async () => {

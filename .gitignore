@@ -3,3 +3,5 @@ dist/
 *.log
 .DS_Store
 .env
+# Local OAuth client IDs (public ids, but they identify your own Google/Azure project)
+src/main/calendar/client-ids.local.json

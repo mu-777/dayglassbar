@@ -224,6 +224,106 @@ input[type="range"] {
   margin-top: 8px;
 }
 
+/* calendar connection rows */
+.cal-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 6px;
+}
+
+.cal-provider {
+  flex: 0 0 auto;
+  min-width: 92px;
+  font-weight: 600;
+}
+
+.cal-status {
+  flex: 1 1 auto;
+  color: var(--muted);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note.warn {
+  color: var(--danger);
+}
+
+/* one-time first-launch guide: a calm accent panel, not an alarm (invariant #4) */
+.onboarding-hint {
+  margin: 12px 0 0;
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--line));
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.cal-provider-block {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+
+.cal-provider-block .note {
+  margin: 6px 0 0;
+}
+
+.cal-method {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.cal-method .radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.cal-conn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.cal-conn:empty {
+  display: none;
+}
+
+.cal-calendars {
+  margin-top: 8px;
+}
+
+.cal-calendars:empty {
+  display: none;
+}
+
+.cal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+label.cal-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 /* buttons */
 button {
   background: var(--panel-2);
@@ -237,6 +337,15 @@ button {
 
 button:hover {
   border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+button:disabled:hover {
+  border-color: var(--line);
 }
 
 button.ghost {

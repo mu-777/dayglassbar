@@ -1,6 +1,8 @@
 // DayGlassBar core: schedule resolution and bar state computation.
 // Pure logic — no Electron / DOM dependencies. Keep it that way (CLAUDE.md invariant #2).
 
+import { computeEventSegments } from './calendar.js';
+
 export const WEEKDAY_KEYS = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat']; // Date#getDay() order
 export const WEEK_ORDER = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun']; // display / pairing order
 
@@ -181,11 +183,13 @@ function axisLabel(ms, anchorMidnightMs) {
 // Single entry point used by the main process every tick.
 // Modes (spec 5): 'active' (inside the interval), 'empty' (outside, track only),
 // 'hidden' (the day is OFF and no overnight interval is running).
+// opts.events (pre-normalized via calendar.js) + opts.calendarEnabled overlay the
+// remaining side with calendar bands (spec 4.6); they only appear in 'active' mode.
 export function getBarState(schedule, nowMs, opts = {}) {
   const interval = getActiveInterval(schedule, nowMs);
   if (interval) {
     const span = interval.endMs - interval.startMs;
-    return {
+    const state = {
       mode: 'active',
       nowFrac: clamp01((nowMs - interval.startMs) / span),
       segments: computeSegments(interval, nowMs),
@@ -199,6 +203,8 @@ export function getBarState(schedule, nowMs, opts = {}) {
         remaining: formatDurationMs(interval.endMs - nowMs),
       },
     };
+    if (opts.calendarEnabled) state.events = computeEventSegments(interval, nowMs, opts.events || []);
+    return state;
   }
   const todayRec = resolveDay(schedule, new Date(nowMs));
   return { mode: todayRec.enabled ? 'empty' : 'hidden' };

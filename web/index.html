@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DayGlassBar — an ambient bar for the time left in your day</title>
+  <meta name="description" data-i18n="meta.description"
+    content="DayGlassBar is an ambient desktop app that shows the time left in your day as a thin draining bar at the edge of your screen. No numbers, no color changes, no alarms. Windows & macOS, free." />
+
+  <!-- Open Graph / social card. Replace og:image with a 1200x630 card (see web/README.md). -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="DayGlassBar" />
+  <meta property="og:description"
+    content="An ambient edge-of-screen bar that quietly shows the time left in your day. A nudge, not a nag." />
+  <meta property="og:image" content="assets/icon.png" />
+  <meta name="twitter:card" content="summary" />
+
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============ Header ============ -->
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="#top" aria-label="DayGlassBar">
+        <img class="brand__icon" src="assets/icon.png" alt="" width="28" height="28" />
+        <span class="brand__name">DayGlassBar</span>
+      </a>
+      <nav class="nav__links" aria-label="Primary">
+        <a href="#features" data-i18n="nav.features">Features</a>
+        <a href="#how" data-i18n="nav.how">How it works</a>
+        <a href="#download" data-i18n="nav.download">Download</a>
+        <a href="#faq" data-i18n="nav.faq">FAQ</a>
+        <a href="https://github.com/mu-777/dayglassbar" rel="noopener" target="_blank">GitHub</a>
+      </nav>
+      <button id="langToggle" class="lang-toggle" type="button" aria-label="Switch language">日本語</button>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- ============ Hero ============ -->
+    <section class="hero">
+      <div class="container hero__grid">
+        <div class="hero__copy">
+          <span class="badge" data-i18n="hero.badge">Free · Windows &amp; macOS</span>
+          <h1 class="hero__title">DayGlassBar</h1>
+          <p class="hero__tagline" data-i18n="hero.tagline">See your day drain away — quietly.</p>
+          <p class="hero__sub" data-i18n="hero.sub">
+            An ambient bar that lives at the edge of your screen and shows the time left in your day.
+            No numbers, no colors changing, no alarms — just a thin sliver of light that shrinks as the day goes by.
+          </p>
+          <div class="hero__cta">
+            <a id="heroDownload" class="btn btn--primary" href="#download">
+              <span data-i18n="hero.cta">Download</span>
+              <span id="heroOs" class="btn__os"></span>
+            </a>
+            <a class="btn btn--ghost" href="https://github.com/mu-777/dayglassbar" rel="noopener" target="_blank"
+               data-i18n="hero.github">View on GitHub</a>
+          </div>
+          <p class="hero__meta">
+            <span id="heroVersion" data-i18n="hero.version">Latest release</span>
+            <span class="dot">·</span>
+            <span data-i18n="hero.principle">A nudge, not a nag</span>
+          </p>
+        </div>
+
+        <!-- Animated demo: a believable desktop with the bar overlaid on the right edge.
+             The fill drains and the bar hover-expands on a loop (driven by demo.js).
+             A real screenshot can replace this later; see web/README.md. -->
+        <div class="hero__art" aria-hidden="true">
+          <div class="screen">
+            <div class="osd" id="dgbScene">
+              <div class="wallpaper"></div>
+
+              <!-- foreground app window: code editor -->
+              <div class="win win--editor">
+                <div class="win__bar">
+                  <span class="tl tl--r"></span><span class="tl tl--y"></span><span class="tl tl--g"></span>
+                  <span class="win__title">schedule.js — DayGlassBar</span>
+                </div>
+                <div class="win__body code">
+                  <div class="gutter"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span></div>
+                  <div class="lines">
+                    <div><span class="c-cm">// remaining time, quietly</span></div>
+                    <div><span class="c-kw">const</span> <span class="c-vr">day</span> = { <span class="c-vr">start</span>: <span class="c-st">'09:00'</span>, <span class="c-vr">end</span>: <span class="c-st">'17:00'</span> };</div>
+                    <div><span class="c-kw">const</span> <span class="c-vr">lunch</span> = [<span class="c-st">'12:00'</span>, <span class="c-st">'13:00'</span>];</div>
+                    <div>&nbsp;</div>
+                    <div><span class="c-kw">function</span> <span class="c-fn">left</span>(<span class="c-vr">now</span>) {</div>
+                    <div>&nbsp;&nbsp;<span class="c-kw">return</span> <span class="c-vr">day</span>.<span class="c-vr">end</span> - <span class="c-vr">now</span>;</div>
+                    <div>}</div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- second window: today's calendar (tucks under the bar at the edge) -->
+              <div class="win win--cal">
+                <div class="win__bar"><span class="win__title">Today</span></div>
+                <div class="win__body cal">
+                  <div class="cal__row"><span class="cal__t">10:00</span><span class="cal__ev ev--blue">Standup</span></div>
+                  <div class="cal__row"><span class="cal__t">12:00</span><span class="cal__ev ev--mut">Lunch</span></div>
+                  <div class="cal__row"><span class="cal__t">14:00</span><span class="cal__ev ev--violet">1:1 — Sam</span></div>
+                  <div class="cal__row"><span class="cal__t">16:00</span><span class="cal__ev ev--blue">Review</span></div>
+                </div>
+              </div>
+
+              <!-- taskbar -->
+              <div class="taskbar">
+                <span class="tb tb--start"></span>
+                <span class="tb"></span><span class="tb"></span><span class="tb"></span><span class="tb"></span>
+                <span class="tb-clock" id="dgbClock">16:15</span>
+              </div>
+
+              <!-- the DayGlassBar overlay (always on top, click-through) -->
+              <div class="dgb" id="dgbBar">
+                <div class="dgb__track"></div>
+                <div class="dgb__fill" id="dgbFill"></div>
+                <div class="dgb__break" id="dgbBreak"></div>
+                <div class="dgb__labels">
+                  <span class="dgb__edge dgb__edge--top">9:00</span>
+                  <span class="dgb__edge dgb__edge--bot">17:00</span>
+                  <div class="dgb__nowtag" id="dgbNowTag">
+                    <span class="dgb__now" id="dgbNow">16:15</span>
+                    <span class="dgb__rem" id="dgbRem">45m left</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="screen__caption" data-i18n="hero.caption">Live demo: the fill is the time left in your day — hover expands it.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ How it works ============ -->
+    <section id="how" class="section">
+      <div class="container">
+        <h2 class="section__title" data-i18n="how.title">How it works</h2>
+        <div class="steps">
+          <article class="step">
+            <div class="step__num">1</div>
+            <h3 data-i18n="how.1.h">Set your day</h3>
+            <p data-i18n="how.1.p">Pick the segment (e.g. 9:00–17:00) and which days are on. Breaks like lunch are greyed out.</p>
+          </article>
+          <article class="step">
+            <div class="step__num">2</div>
+            <h3 data-i18n="how.2.h">Watch it drain</h3>
+            <p data-i18n="how.2.p">A thin bar sits on your screen's edge and fills only the time remaining. As the day passes, the fill shrinks — that's it.</p>
+          </article>
+          <article class="step">
+            <div class="step__num">3</div>
+            <h3 data-i18n="how.3.h">Hover for detail</h3>
+            <p data-i18n="how.3.p">Rest the cursor on the bar and it widens to show start, end, now and time left — then slips back. It's always click-through, so it never steals your clicks.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Features ============ -->
+    <section id="features" class="section section--alt">
+      <div class="container">
+        <h2 class="section__title" data-i18n="features.title">Features</h2>
+        <div class="cards">
+          <article class="card">
+            <div class="card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="26" height="26"><rect x="18" y="3" width="3" height="18" rx="1.5" fill="currentColor" opacity="0.35"/><rect x="18" y="11" width="3" height="10" rx="1.5" fill="currentColor"/></svg>
+            </div>
+            <h3 data-i18n="feat.ambient.h">Ambient by design</h3>
+            <p data-i18n="feat.ambient.p">Lives at the edge of your screen — pin it to any side: top, bottom, left or right. No countdowns, no blinking, no notifications; only the fill length changes.</p>
+          </article>
+
+          <article class="card">
+            <div class="card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="26" height="26"><rect x="3" y="5" width="18" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.8"/><line x1="3" y1="9" x2="21" y2="9" stroke="currentColor" stroke-width="1.8"/><rect x="7" y="12" width="4" height="4" rx="1" fill="currentColor"/></svg>
+            </div>
+            <h3 data-i18n="feat.cal.h">Calendar integration</h3>
+            <p data-i18n="feat.cal.p">Connect Google Calendar, or read classic Outlook locally. Events inside your day appear as colored bands; hover for the title.</p>
+          </article>
+
+          <article class="card">
+            <div class="card__icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="26" height="26"><path d="M5 3l14 8-6 1.5L9 19z" fill="currentColor"/></svg>
+            </div>
+            <h3 data-i18n="feat.through.h">Click-through &amp; always on top</h3>
+            <p data-i18n="feat.through.p">Sits above everything but ignores the mouse — the work underneath is never blocked, even while expanded.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ Download ============ -->
+    <section id="download" class="section">
+      <div class="container">
+        <h2 class="section__title" data-i18n="download.title">Download</h2>
+        <p class="section__sub" id="downloadVersion" data-i18n="download.sub">Latest release, built automatically by GitHub Actions.</p>
+
+        <div class="download-grid">
+          <article class="dl-card" id="dlWindows">
+            <div class="dl-card__os">
+              <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M3 5.5l8-1.1v7.2H3zM11 4.3L21 3v8.6h-10zM3 12.4h8v7.1l-8-1.1zM11 12.4h10V21l-10-1.4z" fill="currentColor"/></svg>
+              <h3>Windows</h3>
+            </div>
+            <p class="dl-card__note" data-i18n="download.win.req">Windows 10 / 11 (64-bit)</p>
+            <div class="dl-card__btns">
+              <a class="btn btn--primary" id="winInstaller" href="https://github.com/mu-777/dayglassbar/releases/latest" rel="noopener" target="_blank" data-i18n="download.win.installer">Installer (.exe)</a>
+              <a class="btn btn--ghost" id="winPortable" href="https://github.com/mu-777/dayglassbar/releases/latest" rel="noopener" target="_blank" data-i18n="download.win.portable">Portable (.exe)</a>
+            </div>
+          </article>
+
+          <article class="dl-card" id="dlMac">
+            <div class="dl-card__os">
+              <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M16.4 12.6c0-2.3 1.9-3.4 2-3.5-1.1-1.6-2.8-1.8-3.4-1.8-1.4-.1-2.8.9-3.5.9-.7 0-1.8-.8-3-.8-1.5 0-3 .9-3.8 2.3-1.6 2.8-.4 7 1.2 9.3.8 1.1 1.7 2.4 2.9 2.3 1.2 0 1.6-.7 3-.7s1.8.7 3 .7 2-1 2.8-2.1c.9-1.3 1.2-2.5 1.3-2.6-.1 0-2.5-1-2.5-3.9zM14.2 5.6c.6-.8 1-1.9.9-3-1 .1-2.1.7-2.8 1.5-.6.7-1.1 1.8-1 2.9 1.1.1 2.2-.6 2.9-1.4z" fill="currentColor"/></svg>
+              <h3>macOS</h3>
+            </div>
+            <p class="dl-card__note" data-i18n="download.mac.req">Apple Silicon</p>
+            <div class="dl-card__btns">
+              <a class="btn btn--primary" id="macDmg" href="https://github.com/mu-777/dayglassbar/releases/latest" rel="noopener" target="_blank" data-i18n="download.mac.dmg">Download (.dmg)</a>
+            </div>
+          </article>
+        </div>
+
+        <div class="note">
+          <strong data-i18n="download.unsigned.h">Heads up: the app isn't code-signed yet.</strong>
+          <span data-i18n="download.unsigned.p">On Windows, the SmartScreen prompt may appear — click <em>More info → Run anyway</em>. On macOS, right-click the app → <em>Open</em> (or run <code>xattr -dr com.apple.quarantine</code> on it).</span>
+        </div>
+
+        <p class="all-releases">
+          <a href="https://github.com/mu-777/dayglassbar/releases" rel="noopener" target="_blank" data-i18n="download.all">All releases &amp; release notes →</a>
+        </p>
+      </div>
+    </section>
+
+    <!-- ============ FAQ ============ -->
+    <section id="faq" class="section section--alt">
+      <div class="container container--narrow">
+        <h2 class="section__title" data-i18n="faq.title">FAQ</h2>
+        <div class="faq">
+          <details>
+            <summary data-i18n="faq.q1">Does it turn red or blink as time runs out?</summary>
+            <p data-i18n="faq.a1">No. "Rush" cues are intentionally left out — only the fill length shrinks, and the color stays constant. The whole point is to nudge, not rush.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q2">Is it a Pomodoro timer? Does it notify me?</summary>
+            <p data-i18n="faq.a2">No. Pomodoro, sounds and notifications are out of scope. It's a display-only tool for feeling how much of your day is left.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q3">Can it show my calendar?</summary>
+            <p data-i18n="faq.a3">Yes. Connect Google Calendar (OAuth), or read classic Outlook locally on Windows — each with its own on/off and color. Events inside your day appear as colored bands; hover to see the title. Outlook's cloud API is currently unsupported.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q4">Will it work with my company's Outlook?</summary>
+            <p data-i18n="faq.a4">Use the local connection with classic Outlook installed on that PC — no sign-in or admin approval needed, and it reads work-account events too. (The "new Outlook" / web-only setups aren't supported for local reading.)</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q5">Can I subscribe to a public ICS calendar URL?</summary>
+            <p data-i18n="faq.a5">No. It was implemented once and removed: ICS feeds are cached by the provider for hours, so they can't follow mid-day changes fast enough.</p>
+          </details>
+          <details>
+            <summary data-i18n="faq.q6">Is it free? What about my data?</summary>
+            <p data-i18n="faq.a6">It's free to download. Your settings live in a local JSON; calendar sign-in tokens are encrypted on your device and never included in exports. Events are only fetched for display — nothing is sent to a cloud of ours.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ Footer ============ -->
+  <footer class="site-footer">
+    <div class="container footer__grid">
+      <div class="footer__brand">
+        <img src="assets/icon.png" alt="" width="22" height="22" />
+        <span>DayGlassBar</span>
+      </div>
+      <p class="footer__tag" data-i18n="footer.tag">A nudge, not a nag.</p>
+      <nav class="footer__links">
+        <a href="https://github.com/mu-777/dayglassbar" rel="noopener" target="_blank">GitHub</a>
+        <a href="https://github.com/mu-777/dayglassbar/releases" rel="noopener" target="_blank" data-i18n="footer.releases">Releases</a>
+        <a href="#top" data-i18n="footer.top">Back to top</a>
+      </nav>
+    </div>
+    <p class="footer__copy">© <span id="year">2026</span> mu-777</p>
+  </footer>
+
+  <script src="app.js"></script>
+  <script src="demo.js"></script>
+</body>
+</html>

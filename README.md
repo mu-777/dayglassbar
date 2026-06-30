@@ -63,6 +63,13 @@ DAYGLASSBAR_TIME_OFFSET_MIN=120 npm start
 
 > **見た目を確認するとき**: 休日（OFF日）や勤務時間外はバーが非表示／トラックのみになるのが正常です。バーの描画・ホバー展開を確認したいときは勤務時間内を指定します（例: `DAYGLASSBAR_FAKE_NOW="2026-06-15 14:00" DAYGLASSBAR_TIME_SCALE=60 npm start` — 月曜 9:00〜17:00 の区間内）。WSL では常駐トレイが出ないため、終了は実行ターミナルで `Ctrl+C` します。
 
+### カレンダー連携（開発）
+OAuth 無しで色帯とホバーを目視するには、ダミー予定を注入します:
+```bash
+DAYGLASSBAR_FAKE_NOW="2026-06-15 14:00" DAYGLASSBAR_FAKE_EVENTS="15:00-15:30 Standup;16:00-16:30 Review" npm start
+```
+実際の Google / Outlook(クラウド) 接続を試すには OAuth アプリを登録し、資格情報を設定します。**Google「デスクトップアプリ」型は `client_id` と `client_secret` の両方**（Google はトークン交換に secret を要求します。Google 自身は非機密扱い）、**Azure「パブリッククライアント」型は `client_id` のみ**です。値は `src/main/calendar/config.js` に集約してあり、`client-ids.local.example.json` を `client-ids.local.json` にコピーして記入（gitignore 済み・キー `google`/`google_secret`/`microsoft`）するか、環境変数 `DAYGLASSBAR_GOOGLE_CLIENT_ID` / `DAYGLASSBAR_GOOGLE_CLIENT_SECRET` / `DAYGLASSBAR_MS_CLIENT_ID`（env が優先）で渡します。実値はリポジトリに置かない方針です。登録手順・設計判断は [`docs/calendar-integration.md`](docs/calendar-integration.md)。
+
 ## ビルド（配布物）
 
 `electron-builder` で `dist/` に出力します。コード署名は未設定。
@@ -100,6 +107,7 @@ npm run dist:win
 
 - **手元確認用ビルド**: Actions タブ → `build` → *Run workflow*。Release は作られず、各 run の Artifacts（`dayglassbar-win` / `dayglassbar-mac`）から `.exe` / `.dmg` をダウンロードします。Artifacts を閲覧できる範囲はリポジトリの可視性に従います（public は誰でも閲覧できます）。
 - **配布用ビルド**: `v*` タグを push すると両OSをビルドし、GitHub Release に `.exe` / `.dmg` を添付します。
+- **カレンダーの資格情報**: ローカルの `client-ids.local.json` は gitignore のため CI には渡りません。配布物で接続を有効にするには、GitHub の Settings → Secrets and variables → Actions に登録します — **Variables**: `DAYGLASSBAR_GOOGLE_CLIENT_ID` / `DAYGLASSBAR_MS_CLIENT_ID`、**Secrets**: `DAYGLASSBAR_GOOGLE_CLIENT_SECRET`（Google のトークン交換に必要）。workflow がビルド前に `client-ids.local.json` を生成して同梱します。未登録ならビルドは成功し、該当プロバイダの接続のみ無効になります。詳細は [`docs/calendar-integration.md`](docs/calendar-integration.md)。
 
 ```bash
 git tag v0.1.0
@@ -107,6 +115,14 @@ git push origin v0.1.0
 ```
 
 未署名のため、配布先では Windows は SmartScreen の「詳細→実行」、macOS は右クリック→「開く」（または `xattr -dr com.apple.quarantine <App>` で隔離属性を解除）が必要です。
+
+## 紹介・配布ページ（GitHub Pages）
+
+紹介とダウンロードのための静的サイトを [`web/`](web/) に置き、GitHub Pages で公開します（英語/日本語のライブ切替）。公開 URL は `https://mu-777.github.io/dayglassbar/`。
+
+- 公開: [`.github/workflows/pages.yml`](.github/workflows/pages.yml) が `web/` をそのまま Pages にアップロードします（ビルド工程なし）。`web/` を変更した push、または *Run workflow* で実行。**一度だけ** リポジトリの Settings → Pages → Source を「GitHub Actions」に設定します。
+- ダウンロードリンク: ページの JS が `releases/latest` を GitHub API で読み、`v*` タグで GitHub Actions が公開した**最新リリースの `.exe`/`.dmg` を自動反映**します（リリースごとの手編集は不要）。リポジトリが **public** であることが前提。
+- 画像: ヒーローとホバー説明は SVG モックアップで仮置きしてあります。実スクリーンショットへの差し替え手順は [`web/README.md`](web/README.md)。
 
 ## 初期設定（インストール直後）
 
@@ -119,7 +135,9 @@ git push origin v0.1.0
 - 太さ: **16px**。
 - 辺: **右**。
 
-いずれも設定画面で変更できます。
+いずれも設定画面で変更できます。**初回起動時は設定画面が自動で開きます**（バーはクリックスルーで、それ自体には UI がないため）。設定画面には、次回以降の開き方を案内する一度きりのヒントが表示されます。
+
+**設定画面はいつでもタスクトレイのアイコンから開けます**（右クリックでメニュー、またはダブルクリック）。Windows ではアイコンが「^」（隠れているインジケーター）の中に入っていることがあります。常に見えるようにするにはタスクバーへピン留めしてください。アイコンにカーソルを合わせると「右クリックで設定」と表示されます。
 
 ## 言語（English / 日本語 / 中文）
 
@@ -132,14 +150,39 @@ UI（設定画面・トレイメニュー・バーのホバーラベル）は英
 - **エクスポート**: 「エクスポート」を押し、保存先を選ぶと現在の設定を JSON で書き出します。
 - **インポート**: 「インポート」を押して JSON を選ぶと、検証に通った場合のみ即時に適用・保存されます。形式が不正・破損したファイルは適用されず、画面にエラーが表示されます。
 
+## カレンダー連携（Google / Outlook）
+
+カレンダーを連携すると、**設定した区間内に予定がある時間帯がバー上で別色**になります。通常はその色変化だけで、**バーにホバーすると予定タイトル**が表示されます（幅が足りなければ省略）。色付けは休憩と同じく「残り側」だけで、過ぎた予定は経過分と一緒に消えます。終日予定・辞退した予定・「空き時間」表示の予定は対象外です。
+
+設定 → 「カレンダー / Calendar」セクションで、**Google と Outlook をそれぞれ**オン/オフでき、**色も別々**に設定できます。
+
+- **Google** — 「Show Google Calendar events」をオンにし、「Connect Google」で既定ブラウザ認証。
+- **Outlook** — 「Show Outlook events」をオンにし、**接続方法をどちらか一つ**選びます:
+  - **ローカル（サインイン不要）** — この PC の**クラシック Outlook（デスクトップ版）**の予定をそのまま読みます。サインイン・管理者承認・クラウド経由いずれも不要。職場アカウントでも可。※Windows＋クラシック版のみ（「新しい Outlook」/ Web 版では使えません）。
+  - **クラウドAPI（サインイン）** — **現在は未対応**です（接続ボタンは無効）。企業アカウントは IT 管理者の承認が必要なことが多く、テナントの用意も難しいためです。Outlook はローカル接続をご利用ください。
+
+許可するとそのプロバイダの表示が自動 ON になります。「Disconnect」で解除（認証情報を破棄）。
+
+- **表示するカレンダーを選ぶ（複数可）**: アカウントに副カレンダーや共有カレンダーが複数あるとき、**どれを表示するか**を選べます。各プロバイダの「表示するカレンダーを選択」を押すとカレンダー一覧が出るので、表示したいものにチェックします（チェックした瞬間に反映・保存。Outlook ローカルはこの PC のクラシック Outlook が見えているカレンダーフォルダが対象）。**何もチェックしない場合はプライマリ（既定）カレンダーのみ**表示します。
+- **更新の速さ**: カレンダー側で予定を追加/変更/削除すると、**Google は約1分以内**にバーへ反映されます（Outlook ローカルは約5分間隔）。スリープから復帰したときは即座に再取得します。
+- **プライバシー**: OAuth のサインイン情報（リフレッシュトークン）と**表示カレンダーの選択**は OS の安全な保管領域で暗号化し、この端末にのみ保存します（`calendar-accounts.enc`）。**設定のエクスポートには含まれません**（Google のカレンダー ID はメールアドレスになり得るため、選択もエクスポート対象外にしています）。表示設定（オン/オフ・色・Outlook の接続方法）は秘匿情報ではないため `settings.json`（エクスポート対象）に保存されます。予定はクラウドへ送らず、表示のために定期取得するだけです。
+
+## 困ったとき（診断情報の保存）
+
+不具合や挙動の問題があったときの解析用に、ログ・環境情報・現在の設定を**1つの `.zip` にまとめて保存**できます。設定画面フッターの「**診断情報を保存**」を押し、保存先を選ぶと作成され、保存後にそのフォルダが開きます。クラウド送信はしません（作成した zip の送付方法は任意です）。
+
+zip には OAuth のサインイン情報（トークン/アカウント）は**含まれません**（`calendar-accounts.enc` は読み取りません）。
+
+アプリは動作ログを `userData/logs/main.log`（古いものは `main.log.1`/`.2`）に記録しており、上の zip にこのログが含まれます。再現手順を詳しく記録したいときは、環境変数 `DAYGLASSBAR_DEBUG=1` を付けて起動すると詳細ログ（debug レベル）になります。
+
 ## 設定ファイルの場所
 
-`settings.json` は OS 標準のユーザーデータ領域（Electron `userData`）に保存されます。
+`settings.json` は OS 標準のユーザーデータ領域（Electron `userData`）に保存されます。ログも同じ領域の `logs/` 配下に保存されます。
 
 | OS | パス |
 | --- | --- |
-| Windows | `%APPDATA%\dayglassbar\settings.json` |
-| macOS | `~/Library/Application Support/dayglassbar/settings.json` |
+| Windows | `%APPDATA%\dayglassbar\settings.json`（ログは `%APPDATA%\dayglassbar\logs\main.log`） |
+| macOS | `~/Library/Application Support/dayglassbar/settings.json`（ログは `~/Library/Application Support/dayglassbar/logs/main.log`） |
 
 破損時は自動的にデフォルトへフォールバックします（消せば初期化）。
 
@@ -154,7 +197,8 @@ UI（設定画面・トレイメニュー・バーのホバーラベル）は英
 | ホバー展開・収納 | カーソル滞留で拡幅（広がった幅いっぱいが塗りで埋まる）→離脱で細バーに戻る |
 | ワークエリア配置 | タスクバーと重ならず、画面端に張り付く |
 | マルチディスプレイ | 指定ディスプレイに表示／外すとプライマリへ／戻すと復帰 |
-| トレイ | アイコン常駐・メニューから設定/終了・ダブルクリックで設定 |
+| 初回起動の案内 | まっさらな状態での初回起動時のみ設定画面が自動で開き、トレイから再度開ける旨のヒントが出る。2回目以降は自動で開かない（`userData/onboarded` センチネルで判定） |
+| トレイ | アイコン常駐・メニューから設定/終了・ダブルクリックで設定・ホバーで「右クリックで設定」のツールチップ |
 | トレイの区間表示 | 先頭行が今いる区間を示す。前日からの夜跨ぎ区間が稼働中なら開始日の曜日とレンジ（既定の英語では例 `Sunday: 9:00–27:00`、日本語では `日曜: 9:00〜27:00`）、区間外なら当日の設定（`Today: …`／`Today: Off`）を表示。文言は選択中の言語に追従 |
 | 言語切替 | 設定の言語ドロップダウンで英/日/中を選ぶと、設定画面・トレイ・バーのホバーラベルが切り替わる（ドロップダウンは保存前でもプレビュー反映） |
 | 自動起動 | ONでログイン時に起動 |
@@ -163,12 +207,20 @@ UI（設定画面・トレイメニュー・バーのホバーラベル）は英
 | DPI | 高DPI/スケーリング変更でにじみ・サイズ崩れがない |
 | 日跨ぎ | 13:00〜25:00 等で 0時を越えても連続表示・25:00表記 |
 | エクスポート/インポート | 保存ダイアログで JSON 出力／開くダイアログで読み込み、正しいものは即適用・不正なものはエラー表示で未適用 |
+| カレンダー: Google | Show Google + Connect Google → ブラウザ認証 → 区間内の予定が Google 色の帯になる・ホバーでタイトル |
+| カレンダー: Outlook ローカル | Show Outlook + 接続方法「ローカル」、クラシック Outlook 起動中 → その予定が Outlook 色の帯になる（Windows・新Outlook/Web は対象外） |
+| カレンダー: Outlook クラウド | 接続方法「クラウドAPI」を選ぶと未対応の説明が出て Connect Microsoft が無効化される（現状の挙動。トグル自体は残す） |
+| カレンダー: カレンダー選択 | 「表示するカレンダーを選択」で一覧が出る（Google=接続後／Outlook=ローカル）→ チェックしたカレンダーの予定だけが帯になる・未チェックなら primary/既定のみ・チェック変更が即反映される |
+| カレンダー: 色分け | Google と Outlook を両方表示したとき、それぞれ設定した色で塗り分けられる |
+| カレンダーの秘匿 | エクスポートした JSON に OAuth トークン/メール/**表示カレンダーの選択**が含まれない（`calendar-accounts.enc` 側にのみ暗号化保存）。表示設定（オン/オフ・色・method）は JSON に含まれる |
 
 ## FAQ
 
 - **赤くなったり点滅したりしないの?** しません。「急かす」表現は意図的に排しています（塗りの長さだけが減ります）。
 - **ポモドーロや通知は?** スコープ外です。これは残量を“感じる”ための表示専用ツールです。
-- **カレンダー連携は?** v2 で ICS 購読、v3 で OAuth を予定（[`docs/spec-v2.md`](docs/spec-v2.md) §4.6, §8）。
+- **カレンダー連携は?** 対応します（区間内の予定を色帯で表示・ホバーでタイトル）。**Google**（OAuth）と **Outlook（ローカル接続）** をそれぞれ表示オン/オフ・色設定でき、**複数カレンダーがある場合は表示するものを選べます**（未選択ならプライマリのみ）。Outlook の**クラウドAPI は現在未対応**（トグルは残してありますが接続ボタンは無効）。上の「カレンダー連携」を参照。
+- **会社の Outlook（企業アカウント）でも使える?** クラウドAPI（OAuth）接続は多くの場合 IT 管理者の承認が必要で、現在は未対応にしています。**クラシック Outlook を入れている PC で「ローカル」接続**を選んでください（サインイン不要で職場アカウントの予定も読めます）。「新しい Outlook」/ Web 版のみの環境では現状ローカル読み取りもできません。
+- **ICS（カレンダーの公開URL）は使えないの?** 一度実装しましたが**外しました**。ICS フィードは提供側（Google/Outlook）のキャッシュで更新が数時間〜最大1日遅れ、仕事中の予定変更に十分速く追従できないためです（詳細は [`docs/calendar-integration.md`](docs/calendar-integration.md) 決定0）。
 
 ## ライセンス
 未定（現状 `UNLICENSED` / private）。

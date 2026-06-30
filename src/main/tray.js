@@ -10,12 +10,15 @@ export function createAppTray({ onOpenSettings, onQuit, getSummary, getLabels })
   if (process.platform === 'darwin') image.setTemplateImage(true);
 
   const tray = new Tray(image);
-  tray.setToolTip('DayGlassBar');
+  tray.setToolTip('DayGlassBar'); // replaced by the localized tooltip on the first rebuild()
 
-  // getLabels() is read on every rebuild() so the menu re-localizes when the
-  // language setting changes (index.js rebuilds the tray on store.onChange).
+  // getLabels() is read on every rebuild() so the menu (and tooltip) re-localize when
+  // the language setting changes (index.js rebuilds the tray on store.onChange).
   function rebuild() {
     const labels = getLabels();
+    // Hover hint so people who do find the icon learn it opens settings (the
+    // in-app first-run guide is the primary discovery path).
+    tray.setToolTip(labels.tooltip);
     const menu = Menu.buildFromTemplate([
       { label: getSummary(), enabled: false },
       { type: 'separator' },

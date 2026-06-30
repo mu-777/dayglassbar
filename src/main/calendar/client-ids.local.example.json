@@ -1,0 +1,5 @@
+{
+  "google": "YOUR_GOOGLE_DESKTOP_CLIENT_ID.apps.googleusercontent.com",
+  "google_secret": "YOUR_GOOGLE_DESKTOP_CLIENT_SECRET",
+  "microsoft": "YOUR_AZURE_PUBLIC_CLIENT_APP_ID"
+}

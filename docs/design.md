@@ -65,10 +65,16 @@
 | `settings:save` | invoke | 検証OKなら保存（→onChangeでバー即時反映） |
 | `settings:export` | invoke | `showSaveDialog` で選んだ JSON ファイルへ現在の設定を書き出す（ローカルファイルのみ） |
 | `settings:import` | invoke | `showOpenDialog` で選んだ JSON を読み、`validateSettings` OK なら `store.save`（→onChangeで反映）。不正/破損時は何も適用しない |
+| `diagnostics:export` | invoke | ログ＋環境情報＋現在の設定を1つの `.zip` にまとめ、`showSaveDialog` で選んだ場所へ保存（保存後にフォルダで reveal）。送信はユーザー任せ＝ネットワーク無し。秘匿情報（OAuth トークン/アカウント＝`calendar-accounts.enc`）は含めない。`{ok, filePath}` か `{ok:false, canceled/error}` |
 | `i18n:catalog` | invoke | 全言語のメッセージ catalog（`{languages, defaultLanguage, languageNames, messages}`）を返す。設定 UI が言語をライブ切替するため |
 | `displays:list` | invoke | ディスプレイ一覧（`{id, primary, width, height, x, y}` の生データ。ラベル文字列は renderer が現在言語で組み立てる） |
+| `calendar:status` | invoke | 接続状態（`{accounts:[{provider,label,connected,email}], encryptionAvailable}`）。**秘匿情報は返さない**（トークンは main 内・別ストア）。設定 UI が表示に使う |
+| `calendar:connect` | invoke | 指定プロバイダの OAuth フローを実行（システムブラウザを開く）。成功時はオーバーレイを自動 ON。`{ok, accounts}` か `{ok:false, error}` |
+| `calendar:disconnect` | invoke | 指定プロバイダの接続を解除（トークン破棄＋その source の選択も破棄）。`{ok, accounts}` |
+| `calendar:list-calendars` | invoke | 指定 source（`google`/`microsoft`/`outlook-local`）の表示カレンダー一覧＋現在の選択を返す（`{ok, calendars:[{id,name,primary}], selected:[ids]}` か `{ok:false, error}`）。設定 UI の「表示カレンダーを選択」で遅延取得 |
+| `calendar:set-selection` | invoke | 指定 source の表示カレンダー（id 配列）を保存＋即時再取得。選択は暗号ストアに入る（settings.json でない）ため Save とは独立。`{ok, selected}` |
 | `bar:open-settings` | send | バーから設定画面を開く |
-| `bar:state` | main→renderer | 毎秒の描画状態（`state/appearance/expanded/strings`。`strings` は現在言語の「区間外」「残り …」ラベル） |
+| `bar:state` | main→renderer | 毎秒の描画状態（`state/appearance/expanded/strings`。`strings` は現在言語の「区間外」「残り …」ラベル。`state.events` は区間内の予定帯 `[{from,to,title,provider}]`・`provider` で色分け） |
 
 ## 設定スキーマ（`src/main/store.js` の DEFAULT_SETTINGS）
 
@@ -87,11 +93,17 @@
     "color": "#4a90d9", "opacity": 0.9,
     "track": {"enabled": true, "opacity": 0.18},
     "breakColor": "#8a8f98",
-    "ticks": {"enabled": true, "intervalMinutes": 60}
+    "ticks": {"enabled": true, "intervalMinutes": 60},
+    "calendar": {
+      "google":  {"enabled": false, "color": "#c98a3a"},
+      "outlook": {"enabled": false, "color": "#4a9e9e", "method": "local"} // 'local' | 'cloud'
+    }
   },
   "behavior": { "autoLaunch": false, "hover": {"dwellMs": 350, "expandedThickness": 56} }
 }
 ```
+
+- **`appearance.calendar` には各プロバイダの表示設定（有効/色）と Outlook の接続方法（`method`）だけを持たせる**。OAuth の接続アカウントとリフレッシュトークンは `userData/calendar-accounts.enc`（safeStorage で暗号化）に分離し、**`settings.json` には入れない＝エクスポートに含めない・`validateSettings` も触れない**（後述「カレンダー連携」）。
 
 - 保存は tmp ファイル＋rename の原子的書き込み。読み込み失敗時はデフォルトへフォールバック。
 - `mergeWithDefaults` で将来のキー追加に前方互換（既存ファイルに無いキーはデフォルト補完、配列は data 優先）。
@@ -105,6 +117,15 @@
 - ボタン配置は設定画面フッターを `justify-content: space-between` の1行にし、**左に「エクスポート」「インポート」**、**右にコミット系（ステータス＋「保存して適用」）**を置く。コミット操作（保存して適用）への誤クリックを避けるための分離。
 - 設定 UI に「開発」セクションは置かない。時刻シミュレーションは環境変数（`DAYGLASSBAR_FAKE_NOW`/`DAYGLASSBAR_TIME_SCALE`/`DAYGLASSBAR_TIME_OFFSET_MIN`）専用（spec §7 / `src/core/time-source.js`）。
 
+## ログと診断ダンプ（問題解析用）
+
+他ユーザー環境での不具合を後から解析できるようにする仕組み。「ログを仕込む」側と「ユーザーが集めて送る」側を分けて設計した。
+
+- **送付経路は意図的にアプリへ入れない**。当初は専用メール/フォーム送信（Google Forms・Tally 等）を検討したが、(a) クラウド送信は本アプリの no-cloud 方針に反し、(b) 設定画面に送信 UI まで持たせるのは過剰、と判断。**アプリの責務は「解析可能な束（zip）を作る」まで**とし、送付手段はユーザー任せにした。**Google Forms はファイルアップロード設問が回答者に Google ログインを強制する**ため匿名添付に不向き、という裏取りも不採用理由（逆戻りガード：送信 UI を再導入しない）。
+- **ロガー方式**: `src/main/logger.js`。`userData/logs/main.log` へ1行レコードを追記し、サイズ上限で `main.log.1`/`.2` にローテーション（既定 2MB×2＝端末を圧迫しない）。外部依存ゼロ（`electron-log` 等を足さない）・**Electron 非依存**（`dir` を注入）なので `test/logger.test.js` で**ローテ・しきい値・redaction**を担保。書き込み失敗は握り潰す（ログ起因でアプリを落とさない）。レベル `error<warn<info<debug`・既定 info、env（`DAYGLASSBAR_LOG_LEVEL`/`DAYGLASSBAR_DEBUG`）で引き上げ。dev は端末にもミラー。
+- **どこに仕込むか**: 「失敗が握り潰されていて外から見えない箇所」を最優先。具体的には CalendarService の各 source 取得失敗（cloud fetch / Outlook local / トークン更新・safeStorage 不可）、store の破損読み込みフォールバック・保存失敗、bar の生成/配置の display フォールバック（spec 4.2）・毎秒 tick の例外・renderer ロード失敗、起動コンテキスト（版/OS/locale/ディスプレイ数/時刻シミュレーション）、IPC の保存/インポート検証却下・カレンダー接続/解除・診断保存の結果、自動起動適用失敗、そしてプロセス全体の `uncaughtException`/`unhandledRejection`・`render/child-process-gone`。**秘匿値は redaction で二重に防ぐ**（そもそも渡さない＋キー名一致で `[redacted]`）。
+- **診断ダンプ**: 設定 UI「診断情報を保存」→ `diagnostics:export`（IPC）→ `src/main/diagnostics.js` が上記ログ＋`environment.json`＋現在の `settings.json` を core の `createZip`（依存ゼロの ZIP ライタ・`src/core/zip.js`/`test/zip.test.js`）で1つの `.zip` にまとめ、`showSaveDialog` 保存後にフォルダで reveal。**秘匿情報（OAuth トークン/アカウント＝`calendar-accounts.enc`）は読まない**。
+
 ## 多言語対応（i18n）
 
 - 対応言語は **英・日・中（`en`/`ja`/`zh`）。既定は英語**（`src/core/i18n.js` の `DEFAULT_LANGUAGE`、`store.js` の `DEFAULT_SETTINGS.language`）。
@@ -114,17 +135,40 @@
 - 検証メッセージは locale を持たせない: `validateSettings` は `{path, code, params}`（`code` は `v.*` の i18n キー）を返し、表示側（設定 UI）が現在言語で整形する。曜日名・特定日ラベルも `params`（`{labelKind, dayKey|date, index}`）から表示側で組み立てる。
 - バーは言語ロジックを持たない（不変条件 #3 のホバーラベルのみ）。必要な語（`区間外`/`残り {v}`）は main が `bar:state.strings` に載せて渡す。
 
+## カレンダー連携（複数 source / 区間内オーバーレイ）
+
+予定のある時間帯をバー上で色付けし、ホバーでタイトルを出す（spec 4.6）。決定の経緯・不採用案・逆戻りガードは `docs/calendar-integration.md`。要点だけここに記す。
+
+- **ユーザー向けは2プロバイダ。各々に表示 ON/OFF と色**（`CalendarService` が `getEvents(start,end)` 相当で集めて `normalizeEvents`。各予定に `provider` タグを付け、バーが色分け）:
+  - **Google** — クラウド OAuth（Google Calendar API）。ローカル手段は無い。
+  - **Outlook** — 接続方法を**いずれか一つ**: `local`（`src/main/calendar/outlook-local.js`・クラシック Outlook を PowerShell/COM でローカル読み取り・サインイン不要・Windows デスクトップ専用・承認不要）／`cloud`（Microsoft Graph OAuth・企業テナントでは管理者承認が要る場合あり）。設定UIでは**排他の二択**として出す。**ただし `cloud` は当面 UI 未対応扱い**（トグルと OAuth コードは残し、選ぶと未対応の説明＋「Connect Microsoft」無効化。理由・再開手順は `docs/calendar-integration.md` 決定0b）。
+- **ICS 公開URL は一度実装後に撤回**: 提供側キャッシュで更新が数時間〜1日遅れ、「仕事中の予定変更に速く追従」要件を満たせないため（理由・逆戻りガードは `docs/calendar-integration.md` 決定0）。
+- `区間＝1本のバー` の抽象は不変、予定は区間内のオーバーレイ。下流（`normalizeEvents`/`computeEventSegments`・描画）は source 非依存。
+- **認証は RFC 8252「AppAuth パターン」**: システムブラウザ＋PKCE＋ループバック（`127.0.0.1:<ephemeral>`）。両プロバイダで**同一の汎用フロー1本**（`src/main/calendar/oauth.js`）を共有し、`google.js`/`microsoft.js` はエンドポイント・スコープ・JSON マッピングだけを持つ。**資格情報はプロバイダで異なる**: Microsoft は真のパブリッククライアントで **client_id のみ**（PKCE が代替）／Google「デスクトップアプリ」型は**トークン交換に `client_secret` を要求する**ため **client_id＋client_secret**（Google は非機密扱いだが必須）。`oauth-url.js` は `config.clientSecret` がある時だけ付与（詳細・逆戻りガードは `docs/calendar-integration.md` 決定2）。
+- **依存ゼロ**: ベンダー SDK（googleapis / msal-node）は使わず、Node 標準（`crypto`=PKCE、`http`=ループバック受け、`fetch`=トークン/取得）で実装。
+- **秘匿の分離**: **OAuth の**リフレッシュトークン＋接続アカウント、および**表示カレンダーの選択**（`selections`）は `userData/calendar-accounts.enc`（Electron `safeStorage` で暗号化）に保存し、`settings.json`（エクスポート対象）からは外す。**選択をここに置く理由**＝Google のカレンダー ID はアカウントのメールアドレスそのものになり得るため、エクスポートに載せない（決定9）。一方 **表示設定（各プロバイダの有効/色・Outlook の method）は非秘匿なので `appearance.calendar` に置く＝エクスポート可**。`safeStorage` 不可環境では平文フォールバック＋設定 UI に注意表示（`calendar.encUnavailable`）。
+- **表示カレンダーの選択（複数可・決定9）**: 各 source が公開するカレンダーを一覧し、表示するものをユーザーが選ぶ。一覧は Google=`users/me/calendarList`／Graph=`/me/calendars`／Outlook local=COM で全ストアのカレンダーフォルダ（`DefaultItemType=1`）を深さ制限付き列挙（`fetchCalendars`/`mapCalendars`(cloud)・`listOutlookLocalCalendars`/`mapOutlookFolders`(local)）。取得は `fetchEvents(token,start,end,calendarId)` を選択 ID ごとに呼び**カレンダー単位の try/catch**でマージ（1つの 404/権限切れで他を落とさない）。**選択が空のときのみ primary/既定 1 本にフォールバック**（旧挙動と後方互換）。設定 UI は「表示するカレンダーを選択」ボタンで `calendar:list-calendars` を遅延取得→チェックボックス、トグルで即 `calendar:set-selection`（Save とは独立＝選択は暗号ストア）。Outlook cloud の選択コードも同形で実装済みだが決定0b で UI 未到達。
+- **取得は毎秒ではない**: `CalendarService`（`src/main/calendar/index.js`）が**タイマ＋接続/設定変更時＋スリープ復帰時**にだけ取得してキャッシュし、毎秒の bar tick は `getBarState` でキャッシュを `now` に再クリップするだけ（不変条件 #1 を維持）。アクセストークンは期限までメモリ保持、`offline_access`/`access_type=offline` でリフレッシュ、Microsoft のローテーションにも追従。オーバーレイが無効/未接続なら取得しない。
+- **取得タイマは cloud/local で分離**（`REFRESH_CLOUD_MS=1分` / `REFRESH_LOCAL_MS=5分`）。理由＝**cloud（Google/Graph）は安い HTTPS GET** なので短間隔でプロバイダ側の編集に速く追従できる（Google のクォータは日100万回規模・ユーザー毎分数百回規模＝1分間隔=約1,440回/日で桁違いに余裕。アクセストークンはキャッシュするので毎分リフレッシュは走らない）。一方 **Outlook local は毎回 PowerShell+Outlook COM プロセスを起動**するため低頻度に保つ（起動中の Outlook を毎分つつかない）。両者は最後の結果（`cloudRaw`/`localRaw`）を保持し `recombine`＝`normalizeEvents([...cloudRaw,...localRaw])` で1キャッシュにマージ（片方の速い更新でもう片方を落とさない）。`recombine` は「空→空」では `notify` しない（カレンダー OFF が既定なので無駄な再描画を出さない）。**逆戻りガード**: cloud と local を**同一の単一タイマに戻さない**（local の PowerShell 起動が cloud と同頻度になり重くなる）。
+- **スリープ復帰で即時取得**: `powerMonitor` の `resume`（`src/main/index.js`）で `calendar.refresh()`（cloud+local 両方を即取得）。スリープ中はタイマが止まり予定が古くなるため、次の間隔を待たず復帰直後に最新化する（時刻計算自体は #1 で常に正しい）。
+- **何を「予定」とみなすか（spec §10 の決定化）**: read-only スコープ（Google `calendar.events.readonly`＋一覧取得用 `calendar.calendarlist.readonly` / Graph `Calendars.Read`）。**終日予定・辞退済み・"空き(free/transparent)" 表示は除外**。判定とフィルタは core `normalizeEvents`（純粋・テスト対象）、JSON→共通形式は各プロバイダの `mapEvents`（純粋・テスト対象）。
+- **描画は休憩と同じ「残り側のみ」**: 過ぎた予定は経過分と一緒に消える。色帯は fill の上・目盛りの下に描き、ホバー時のみタイトルを帯幅にクリップ（省略記号）して重ねる（`src/renderer/bar/bar.js`）。色は一定・点滅や危機色なし（不変条件 #4）。
+- **テスト可能な切り分け**: PKCE・認可 URL 生成・各プロバイダの `mapEvents`/**`mapCalendars`**・**`mapOutlookJson`/`mapOutlookFolders`/`decodeLocalCalendarId`**・`computeEventSegments`/`normalizeEvents`（`provider` 受け渡し）はユニットテスト（`test/calendar*.test.js`/`test/outlook-local.test.js`）。**ブラウザ起動・ループバック・暗号保管・実 API・COM 実行・カレンダー一覧取得と複数選択の取得は Windows 実機での手動確認**（検証方針どおり）。
+- **新 Outlook / Web の制約**: COM が無く、データはクラウド側のため**完全ローカル読み取りの正規手段は無い**＝クラウド OAuth（管理者承認が要る場合あり）になる。ローカル Outlook は **Windows＋クラシック Outlook 起動中**が前提（GPO の「プログラムによるアクセス」禁止で不可の場合あり）。
+- **開発用フェイク源**: `DAYGLASSBAR_FAKE_EVENTS="16:00-16:30 Standup;…"`（時刻シミュレーションと同系統）で OAuth/ネットワーク無しに色帯/ホバーを目視できる（`src/main/calendar/fake-events.js`）。
+- **開発者の一度きりの準備**: Google Cloud で「デスクトップアプリ」型 client_id、Azure で「パブリッククライアント」アプリ（ループバックリダイレクト・`Calendars.Read`）を登録。値は `src/main/calendar/config.js` に集約し、**gitignore 済みの `client-ids.local.json`**（`client-ids.local.example.json` をコピー）か env（`DAYGLASSBAR_GOOGLE_CLIENT_ID`/`DAYGLASSBAR_MS_CLIENT_ID`・優先）で渡す。client_id は秘密ではないが自分のプロジェクト識別子なので実値はリポジトリに置かない。未設定なら接続時に「client_id not configured」を返す。
+
 ## モジュール構成と責務
 
 | 層 | 場所 | 責務 | Electron依存 |
 | --- | --- | --- | --- |
-| core | `src/core/` | 時間モデル・検証・ジオメトリ・時刻源・i18n | **なし（テスト対象）** |
-| main | `src/main/` | ウィンドウ・トレイ・IPC・永続化・自動起動 | あり |
+| core | `src/core/` | 時間モデル・検証・ジオメトリ・時刻源・i18n・カレンダー幾何(`calendar.js`) | **なし（テスト対象）** |
+| main | `src/main/` | ウィンドウ・トレイ・IPC・永続化・自動起動・カレンダー連携(`calendar/`) | あり |
 | preload | `src/preload/` | contextBridge（CJS） | あり |
 | renderer | `src/renderer/` | 描画・設定UI（純描画/DOM） | なし |
 
-- `store.js` のみ main 配下だが純Nodeでテスト可能（ディレクトリ注入）。
-- 自動テストで担保できるのは core（時間・検証・幾何・store）まで。**GUI/常駐挙動は Windows 実機での手動確認**が前提。
+- `store.js` のみ main 配下だが純Nodeでテスト可能（ディレクトリ注入）。`src/main/calendar/` のうち electron 非依存な `pkce.js`/`oauth-url.js`/`google.js`/`microsoft.js`（`mapEvents`）もテスト対象。
+- 自動テストで担保できるのは core（時間・検証・幾何・store）とカレンダーの純粋部分まで。**GUI/常駐挙動・OAuth/ネットワークは Windows 実機での手動確認**が前提。
 
 ## 既知の制限
 - 排他フルスクリーンアプリの上には出ない（OS仕様。spec 9）。ボーダーレス全画面では被るのは期待動作。
@@ -141,4 +185,5 @@
 - 決定の経緯・不採用案とその理由は `docs/icon-design.md`（逆戻りガード）。
 
 ## 今後（spec 8）
-- v2: ICS 購読を core にパーサとして足し、`schedule` を生成する経路を追加（既存の `getBarState` はそのまま使える設計）。
+- カレンダー連携の精緻化: busy 判定の調整、1プロバイダ複数アカウント接続、深い階層の共有カレンダー列挙（現状 Outlook local は深さ8まで）。（表示カレンダーの選択は実装済み＝決定9。）
+- ICS 購読（URL/ファイル）を core パーサとして足し、OAuth と並ぶ取り込み経路にする（`getBarState`/`normalizeEvents` はそのまま使える設計）。

@@ -63,6 +63,20 @@ test('store: defaults when no file, then round-trips a save and notifies', () =>
   assert.equal(reloaded.get().appearance.edge, 'left');
 });
 
+test('store: onboarding sentinel is one-shot, persists, and stays out of settings.json', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dgb-'));
+  const store = createStore(dir);
+  assert.equal(store.isOnboarded(), false); // fresh install → first-run guide should show
+
+  store.markOnboarded();
+  assert.equal(store.isOnboarded(), true);
+  assert.equal(createStore(dir).isOnboarded(), true); // survives a restart
+
+  // The sentinel must not leak into the exportable settings file.
+  store.save(structuredClone(store.get()));
+  assert.ok(!('onboarded' in JSON.parse(fs.readFileSync(store.filePath, 'utf8'))));
+});
+
 test('store: corrupt file falls back to defaults', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dgb-'));
   fs.writeFileSync(path.join(dir, 'settings.json'), '{not json');

@@ -35,6 +35,22 @@ jobs:
 
       - run: npm ci
 
+      # Materialize the OAuth credentials into the gitignored local file so they are bundled
+      # into the artifact. config.js reads env at *runtime*, which the shipped app doesn't
+      # have, so the values must be written to disk before packaging (files: src/**/* picks it
+      # up). client_ids are PUBLIC ids → repository *Variables*. Google's "Desktop app" client
+      # also needs a client_secret (Google requires it even with PKCE; it ships in the app and
+      # Google doesn't treat it as confidential) → kept as a *Secret* for log masking. Microsoft
+      # is a public client (no secret). Empty when unset → build still succeeds, just without
+      # that provider's cloud connect.
+      - name: Write OAuth credentials
+        env:
+          GOOGLE_CLIENT_ID: ${{ vars.DAYGLASSBAR_GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.DAYGLASSBAR_GOOGLE_CLIENT_SECRET }}
+          MS_CLIENT_ID: ${{ vars.DAYGLASSBAR_MS_CLIENT_ID }}
+        run: |
+          node -e "require('fs').writeFileSync('src/main/calendar/client-ids.local.json', JSON.stringify({ google: process.env.GOOGLE_CLIENT_ID || '', google_secret: process.env.GOOGLE_CLIENT_SECRET || '', microsoft: process.env.MS_CLIENT_ID || '' }))"
+
       - name: Build (${{ matrix.platform }})
         run: npm run dist:${{ matrix.platform }}
         env:

@@ -48,6 +48,36 @@ export const MESSAGES = {
     'field.dwell': 'Hover delay (ms)',
     'field.expanded': 'Expanded thickness (px)',
 
+    'settings.calendar': 'Calendar',
+    'settings.calendarNote':
+      'Tint the times you are busy on the bar; titles appear on hover. Turn on Google and/or Outlook below, each with its own color. OAuth sign-in is stored encrypted on this device and is never exported.',
+    'calendar.showGoogle': 'Show Google Calendar events',
+    'calendar.showOutlook': 'Show Outlook events',
+    'field.calendarColor': 'Event color',
+    'calendar.outlookMethod': 'Outlook connection',
+    'calendar.methodLocal': 'Local (no sign-in)',
+    'calendar.methodCloud': 'Cloud API (sign in)',
+    'calendar.localOutlookHint':
+      'Reads the classic Outlook desktop app on this PC — no sign-in, works with work accounts. Windows + classic Outlook only (not the new Outlook or the web).',
+    'calendar.methodCloudHint':
+      'Cloud sign-in (Microsoft Graph) isn’t available yet — work/school accounts usually need IT-admin approval, which is hard to arrange. For now use “Local” on Windows with classic Outlook.',
+    'calendar.connect': 'Connect {provider}',
+    'calendar.disconnect': 'Disconnect',
+    'calendar.connectedAs': 'Connected: {email}',
+    'calendar.notConnected': 'Not connected',
+    'calendar.connecting': 'Connecting…',
+    'calendar.connected': 'Connected.',
+    'calendar.disconnected': 'Disconnected.',
+    'calendar.connectFailed': 'Couldn’t connect ({error}).',
+    'calendar.encUnavailable': 'OS secure storage is unavailable; sign-in won’t persist after a restart.',
+    'calendar.chooseCalendars': 'Choose calendars…',
+    'calendar.calendarsHint': 'Pick which calendars to show. If none are checked, only your primary calendar is shown.',
+    'calendar.loadingCalendars': 'Loading…',
+    'calendar.loadCalendarsFailed': 'Couldn’t load calendars ({error}).',
+    'calendar.noCalendars': 'No calendars found.',
+    'calendar.primaryBadge': '(primary)',
+    'calendar.calendarsSaved': 'Calendars updated.',
+
     'edge.top': 'Top',
     'edge.bottom': 'Bottom',
     'edge.left': 'Left',
@@ -57,6 +87,8 @@ export const MESSAGES = {
     'btn.addBreak': '+ Break',
     'btn.export': 'Export',
     'btn.import': 'Import',
+    'btn.diagnostics': 'Save diagnostics',
+    'btn.diagnosticsHint': 'Bundle logs and app info into a .zip to send to support when something goes wrong.',
     'btn.save': 'Save & apply',
     'title.removeBreak': 'Remove this break',
     'title.removeOverride': 'Remove this override',
@@ -70,6 +102,8 @@ export const MESSAGES = {
     'status.exportFailed': 'Export failed ({error}).',
     'status.imported': 'Imported and applied.',
     'status.importFailed': 'Import failed (check the errors).',
+    'status.diagnosticsSaved': 'Diagnostics saved.',
+    'status.diagnosticsFailed': 'Couldn’t save diagnostics ({error}).',
     'error.unknown': 'Unknown error',
     'error.importGeneric': "Couldn't import.",
 
@@ -96,9 +130,14 @@ export const MESSAGES = {
     'tray.today': 'Today',
     'tray.dayOff': 'Off',
     'tray.simNotice': '[time simulation]',
+    'tray.tooltip': 'DayGlassBar — right-click for settings',
+
+    'onboarding.trayHint':
+      'DayGlassBar runs in the system tray. Open these settings any time from its tray icon (right-click, or double-click). On Windows it may be tucked under the “^” arrow — pin it to keep it in view.',
 
     'dialog.exportTitle': 'Export settings',
     'dialog.importTitle': 'Import settings',
+    'dialog.diagnosticsTitle': 'Save diagnostics',
     'io.writeFail': 'Failed to write the file: {msg}',
     'io.readFail': "Couldn't read the file (invalid JSON).",
 
@@ -128,6 +167,7 @@ export const MESSAGES = {
     'v.expanded': 'Expanded thickness must be 24–200 px.',
     'v.autoLaunch': 'Invalid auto-launch setting.',
     'v.language': 'Invalid language setting.',
+    'v.calendar': 'Invalid calendar settings.',
   },
 
   ja: {
@@ -160,6 +200,36 @@ export const MESSAGES = {
     'field.dwell': 'ホバー判定（ms）',
     'field.expanded': '展開時の太さ（px）',
 
+    'settings.calendar': 'カレンダー',
+    'settings.calendarNote':
+      '予定がある時間帯をバー上で色付けします（タイトルはホバーで表示）。下で Google / Outlook を個別にオンにでき、色もそれぞれ設定できます。OAuth のサインイン情報はこの端末に暗号化保存され、エクスポートには含まれません。',
+    'calendar.showGoogle': 'Google カレンダーの予定を表示',
+    'calendar.showOutlook': 'Outlook の予定を表示',
+    'field.calendarColor': '予定の色',
+    'calendar.outlookMethod': 'Outlook の接続方法',
+    'calendar.methodLocal': 'ローカル（サインイン不要）',
+    'calendar.methodCloud': 'クラウドAPI（サインイン）',
+    'calendar.localOutlookHint':
+      'この PC のクラシック Outlook（デスクトップ版）を読みます。サインイン不要・職場アカウントでも可。Windows＋クラシック版のみ（新しい Outlook や Web 版では不可）。',
+    'calendar.methodCloudHint':
+      'クラウド（Microsoft Graph）でのサインインは現在ご利用いただけません。職場/学校アカウントは IT 管理者の承認が必要なことが多く、用意が難しいためです。今は Windows のクラシック Outlook で「ローカル」をご利用ください。',
+    'calendar.connect': '{provider} を接続',
+    'calendar.disconnect': '接続を解除',
+    'calendar.connectedAs': '接続中: {email}',
+    'calendar.notConnected': '未接続',
+    'calendar.connecting': '接続中…',
+    'calendar.connected': '接続しました',
+    'calendar.disconnected': '接続を解除しました',
+    'calendar.connectFailed': '接続できませんでした（{error}）',
+    'calendar.encUnavailable': 'OS の安全な保管が使えないため、再起動後にサインインが保持されません。',
+    'calendar.chooseCalendars': '表示するカレンダーを選択…',
+    'calendar.calendarsHint': '表示するカレンダーを選びます。未選択の場合はプライマリ（既定）カレンダーのみ表示します。',
+    'calendar.loadingCalendars': '読み込み中…',
+    'calendar.loadCalendarsFailed': 'カレンダー一覧を取得できませんでした（{error}）。',
+    'calendar.noCalendars': 'カレンダーが見つかりませんでした。',
+    'calendar.primaryBadge': '（既定）',
+    'calendar.calendarsSaved': '表示カレンダーを更新しました。',
+
     'edge.top': '上',
     'edge.bottom': '下',
     'edge.left': '左',
@@ -169,6 +239,8 @@ export const MESSAGES = {
     'btn.addBreak': '+ 休憩',
     'btn.export': 'エクスポート',
     'btn.import': 'インポート',
+    'btn.diagnostics': '診断情報を保存',
+    'btn.diagnosticsHint': '不具合時にサポートへ送るため、ログとアプリ情報を zip にまとめて保存します。',
     'btn.save': '保存して適用',
     'title.removeBreak': 'この休憩を削除',
     'title.removeOverride': 'この上書きを削除',
@@ -182,6 +254,8 @@ export const MESSAGES = {
     'status.exportFailed': 'エクスポートできませんでした（{error}）',
     'status.imported': 'インポートして適用しました',
     'status.importFailed': 'インポートできませんでした（エラーを確認してください）',
+    'status.diagnosticsSaved': '診断情報を保存しました',
+    'status.diagnosticsFailed': '診断情報を保存できませんでした（{error}）',
     'error.unknown': '不明なエラー',
     'error.importGeneric': 'インポートできませんでした',
 
@@ -208,9 +282,14 @@ export const MESSAGES = {
     'tray.today': '今日',
     'tray.dayOff': '休み',
     'tray.simNotice': '［時刻シミュレーション中］',
+    'tray.tooltip': 'DayGlassBar — 右クリックで設定',
+
+    'onboarding.trayHint':
+      'DayGlassBar はタスクトレイに常駐します。設定はいつでもトレイのアイコンから開けます（右クリック、またはダブルクリック）。Windows では「^」の中に隠れていることがあります。ピン留めすると常に表示されます。',
 
     'dialog.exportTitle': '設定をエクスポート',
     'dialog.importTitle': '設定をインポート',
+    'dialog.diagnosticsTitle': '診断情報を保存',
     'io.writeFail': 'ファイルの書き込みに失敗しました: {msg}',
     'io.readFail': 'ファイルを読み込めませんでした（JSON 形式が不正です）',
 
@@ -240,6 +319,7 @@ export const MESSAGES = {
     'v.expanded': '展開時の太さは 24〜200 px で指定してください',
     'v.autoLaunch': '自動起動の設定が不正です',
     'v.language': '言語の設定が不正です',
+    'v.calendar': 'カレンダーの設定が不正です',
   },
 
   zh: {
@@ -272,6 +352,36 @@ export const MESSAGES = {
     'field.dwell': '悬停判定（ms）',
     'field.expanded': '展开时粗细（px）',
 
+    'settings.calendar': '日历',
+    'settings.calendarNote':
+      '在状态条上为你忙碌的时段着色（标题在悬停时显示）。可在下方分别开启 Google / Outlook，并各自设定颜色。OAuth 登录信息加密保存在本机，且不会被导出。',
+    'calendar.showGoogle': '显示 Google 日历日程',
+    'calendar.showOutlook': '显示 Outlook 日程',
+    'field.calendarColor': '日程颜色',
+    'calendar.outlookMethod': 'Outlook 连接方式',
+    'calendar.methodLocal': '本地（无需登录）',
+    'calendar.methodCloud': '云 API（登录）',
+    'calendar.localOutlookHint':
+      '读取本机的经典 Outlook 桌面版——无需登录，支持工作账户。仅限 Windows + 经典 Outlook（不支持新版 Outlook 或网页版）。',
+    'calendar.methodCloudHint':
+      '云（Microsoft Graph）登录暂不可用——工作/学校账户通常需要 IT 管理员批准，较难准备。目前请在 Windows 上通过经典 Outlook 使用“本地”。',
+    'calendar.connect': '连接 {provider}',
+    'calendar.disconnect': '断开连接',
+    'calendar.connectedAs': '已连接：{email}',
+    'calendar.notConnected': '未连接',
+    'calendar.connecting': '连接中…',
+    'calendar.connected': '已连接。',
+    'calendar.disconnected': '已断开连接。',
+    'calendar.connectFailed': '无法连接（{error}）。',
+    'calendar.encUnavailable': '系统安全存储不可用；重启后登录将不会保留。',
+    'calendar.chooseCalendars': '选择要显示的日历…',
+    'calendar.calendarsHint': '选择要显示的日历。如果未勾选任何项，则只显示主日历。',
+    'calendar.loadingCalendars': '加载中…',
+    'calendar.loadCalendarsFailed': '无法加载日历列表（{error}）。',
+    'calendar.noCalendars': '未找到日历。',
+    'calendar.primaryBadge': '（默认）',
+    'calendar.calendarsSaved': '已更新显示日历。',
+
     'edge.top': '上',
     'edge.bottom': '下',
     'edge.left': '左',
@@ -281,6 +391,8 @@ export const MESSAGES = {
     'btn.addBreak': '+ 休息',
     'btn.export': '导出',
     'btn.import': '导入',
+    'btn.diagnostics': '保存诊断信息',
+    'btn.diagnosticsHint': '将日志和应用信息打包为 zip，便于在出现问题时发送给支持。',
     'btn.save': '保存并应用',
     'title.removeBreak': '删除此休息',
     'title.removeOverride': '删除此覆盖',
@@ -294,6 +406,8 @@ export const MESSAGES = {
     'status.exportFailed': '导出失败（{error}）。',
     'status.imported': '已导入并应用。',
     'status.importFailed': '导入失败（请检查错误）。',
+    'status.diagnosticsSaved': '已保存诊断信息。',
+    'status.diagnosticsFailed': '无法保存诊断信息（{error}）。',
     'error.unknown': '未知错误',
     'error.importGeneric': '导入失败。',
 
@@ -320,9 +434,14 @@ export const MESSAGES = {
     'tray.today': '今天',
     'tray.dayOff': '休息',
     'tray.simNotice': '［时间模拟中］',
+    'tray.tooltip': 'DayGlassBar — 右键打开设置',
+
+    'onboarding.trayHint':
+      'DayGlassBar 常驻于系统托盘。随时可从托盘图标打开本设置（右键，或双击）。在 Windows 上它可能隐藏在“^”中——将其固定即可常显。',
 
     'dialog.exportTitle': '导出设置',
     'dialog.importTitle': '导入设置',
+    'dialog.diagnosticsTitle': '保存诊断信息',
     'io.writeFail': '写入文件失败：{msg}',
     'io.readFail': '无法读取文件（JSON 格式不正确）。',
 
@@ -352,6 +471,7 @@ export const MESSAGES = {
     'v.expanded': '展开时粗细须为 24〜200 px。',
     'v.autoLaunch': '自动启动设置不正确。',
     'v.language': '语言设置不正确。',
+    'v.calendar': '日历设置无效。',
   },
 };
 

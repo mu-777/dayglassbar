@@ -142,6 +142,15 @@ export function validateSettings(settings) {
   ) {
     errors.push(err('appearance.ticks', 'v.ticks'));
   }
+  // Calendar overlay: per-provider display prefs (OAuth account/token state lives in a
+  // separate store, not validated here). Google is cloud-only; Outlook picks one method.
+  const cal = ap.calendar || {};
+  const providerOk = (p) => p && typeof p.enabled === 'boolean' && hexColor(p.color);
+  const calOk =
+    providerOk(cal.google) &&
+    providerOk(cal.outlook) &&
+    ['local', 'cloud'].includes(cal.outlook.method);
+  if (!calOk) errors.push(err('appearance.calendar', 'v.calendar'));
   const hv = settings?.behavior?.hover || {};
   if (!Number.isInteger(hv.dwellMs) || hv.dwellMs < 100 || hv.dwellMs > 2000) {
     errors.push(err('behavior.hover.dwellMs', 'v.dwell'));

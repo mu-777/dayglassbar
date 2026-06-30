@@ -70,6 +70,16 @@
             : hexToRgba(appearance.color, appearance.opacity);
         rect(seg.from, seg.to, color);
       }
+      // Calendar events recolor their slice of the remaining fill (spec 4.6) — painted
+      // over fill/breaks but under the ticks so the time grid stays visible on top. Each
+      // event is colored by its provider (Google vs Outlook have separate colors).
+      if (state.events && state.events.length) {
+        const cal = appearance.calendar || {};
+        for (const ev of state.events) {
+          const perProvider = cal[ev.provider] && cal[ev.provider].color;
+          rect(ev.from, ev.to, hexToRgba(perProvider || '#c98a3a', appearance.opacity));
+        }
+      }
       if (state.ticks && state.ticks.length) {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
         for (const f of state.ticks) {
@@ -77,7 +87,10 @@
           else ctx.fillRect(0, f * h - 0.5, w, 1);
         }
       }
-      if (expanded) renderActiveLabels(state, strings, horizontal, w, h);
+      if (expanded) {
+        renderActiveLabels(state, strings, horizontal, w, h);
+        if (state.events && state.events.length) renderEventLabels(state.events, horizontal, w, h);
+      }
     } else if (expanded) {
       // Outside the interval (track only): label what this strip is.
       if (horizontal) {
@@ -112,6 +125,23 @@
       const y = Math.min(Math.max(state.nowFrac * h - 14, 26), h - 40);
       const nowEl = addLabel(`${state.labels.now}\n${remaining}`, { top: `${y}px` }, true);
       nowEl.style.whiteSpace = 'pre-line';
+    }
+  }
+
+  // Event titles, only while expanded: one per band, clipped to the band's extent so a
+  // long title is truncated with an ellipsis (the user accepted truncation). Placed off
+  // the center line (where the time labels sit) to avoid overlapping them.
+  function renderEventLabels(events, horizontal, w, h) {
+    for (const ev of events) {
+      if (!ev.title) continue;
+      if (horizontal) {
+        const x = ev.from * w;
+        const width = Math.max(0, (ev.to - ev.from) * w);
+        addLabel(ev.title, { left: `${x}px`, top: '3px', width: `${width}px` }).classList.add('event');
+      } else {
+        const y = ev.from * h;
+        addLabel(ev.title, { top: `${y}px`, left: '2px', right: '2px' }).classList.add('event');
+      }
     }
   }
 })();

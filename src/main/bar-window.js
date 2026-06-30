@@ -17,6 +17,7 @@ import { BrowserWindow, screen, app } from 'electron';
 import { getBarState } from '../core/schedule.js';
 import { computeBarBounds, pointInBounds } from '../core/geometry.js';
 import { t, DEFAULT_LANGUAGE } from '../core/i18n.js';
+import { createFakeEventSource } from './calendar/fake-events.js';
 
 const POLL_IDLE_MS = 250;
 const POLL_NEAR_MS = 60;
@@ -27,7 +28,10 @@ const POLL_NEAR_MS = 60;
 // on screen for visual checks. Unset by default → production behavior is unchanged.
 const WSL_VISIBLE = /^(1|true|yes|on)$/i.test(process.env.DAYGLASSBAR_WSL_VISIBLE || '');
 
-export function createBarController({ store, timeSource }) {
+export function createBarController({ store, timeSource, calendar = null, log = null }) {
+  // Dev-only fake events (DAYGLASSBAR_FAKE_EVENTS); the real events come from the
+  // CalendarService (`calendar`). Both expose normalized { startMs, endMs, title }.
+  const fakeEvents = createFakeEventSource(process.env);
   let win = null;
   let expanded = false;
   let insideSinceMs = null;
@@ -36,6 +40,7 @@ export function createBarController({ store, timeSource }) {
   let tickTimer = null;
   let lastMode = null;
   let quitting = false;
+  let displayFallbackActive = false; // log only when the configured-display fallback toggles
 
   app.on('before-quit', () => {
     quitting = true;
@@ -48,8 +53,14 @@ export function createBarController({ store, timeSource }) {
     // Fall back to the primary display when the configured one is unavailable
     // (spec 4.2: disconnected display → primary, restored on reconnect).
     const wanted = appearance().displayId;
-    const displays = screen.getAllDisplays();
-    return displays.find((d) => d.id === wanted) || screen.getPrimaryDisplay();
+    const found = screen.getAllDisplays().find((d) => d.id === wanted);
+    const onFallback = wanted != null && !found;
+    if (onFallback !== displayFallbackActive) {
+      displayFallbackActive = onFallback;
+      if (onFallback) log?.warn('configured display unavailable; using primary', { wanted });
+      else if (found) log?.info('configured display available again', { wanted });
+    }
+    return found || screen.getPrimaryDisplay();
   }
 
   function currentBounds() {
@@ -117,7 +128,11 @@ export function createBarController({ store, timeSource }) {
       if (!quitting) e.preventDefault(); // the bar cannot be closed, only quit via the tray
     });
     win.webContents.on('did-finish-load', () => pushState());
+    win.webContents.on('did-fail-load', (_e, code, desc, url) =>
+      log?.error('bar renderer failed to load', { code, desc, url }));
     win.loadFile('src/renderer/bar/index.html');
+    const ap = appearance();
+    log?.info('bar window created', { edge: ap.edge, thickness: ap.thickness, displayId: ap.displayId, transparent: !WSL_VISIBLE });
   }
 
   // Recompute from the wall clock and push to the renderer. Never accumulate
@@ -127,8 +142,18 @@ export function createBarController({ store, timeSource }) {
     if (!win || win.isDestroyed()) return;
     const settings = store.get();
     const ap = settings.appearance;
-    const state = getBarState(settings.schedule, timeSource.now(), {
+    const now = timeSource.now();
+    // The service already returns [] when the overlay is disabled or no account is
+    // connected. The fake source (dev) both supplies events and forces the overlay on so
+    // bands show without toggling settings; in production calendarEnabled follows the setting.
+    const serviceEvents = calendar ? calendar.eventsAround(now) : [];
+    const events = fakeEvents.enabled ? [...serviceEvents, ...fakeEvents.eventsAround(now)] : serviceEvents;
+    const c = ap.calendar || {};
+    const calendarEnabled = Boolean((c.google && c.google.enabled) || (c.outlook && c.outlook.enabled)) || fakeEvents.enabled;
+    const state = getBarState(settings.schedule, now, {
       tickIntervalMinutes: ap.ticks.enabled ? ap.ticks.intervalMinutes : 0,
+      events,
+      calendarEnabled,
     });
     if (state.mode === 'hidden') {
       if (win.isVisible()) win.hide(); // OFF day: fully hidden (spec 5)
@@ -195,7 +220,14 @@ export function createBarController({ store, timeSource }) {
 
   function start() {
     create();
-    tickTimer = setInterval(pushState, 1000);
+    // Guard the per-second tick: a throwing tick would otherwise stop all updates silently.
+    tickTimer = setInterval(() => {
+      try {
+        pushState();
+      } catch (err) {
+        log?.error('bar tick failed', err);
+      }
+    }, 1000);
     poll();
     screen.on('display-added', onDisplaysChanged);
     screen.on('display-removed', onDisplaysChanged);
@@ -205,6 +237,9 @@ export function createBarController({ store, timeSource }) {
       applyBounds();
       pushState();
     });
+    // Repaint when the calendar cache changes (connect/disconnect/refresh), so newly
+    // fetched events appear without waiting for the next second tick.
+    if (calendar) calendar.onChange(() => pushState());
   }
 
   function dispose() {

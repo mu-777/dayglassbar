@@ -10,4 +10,10 @@ contextBridge.exposeInMainWorld('api', {
   listDisplays: () => ipcRenderer.invoke('displays:list'),
   exportSettings: () => ipcRenderer.invoke('settings:export'),
   importSettings: () => ipcRenderer.invoke('settings:import'),
+  exportDiagnostics: () => ipcRenderer.invoke('diagnostics:export'),
+  calendarStatus: () => ipcRenderer.invoke('calendar:status'),
+  calendarConnect: (provider) => ipcRenderer.invoke('calendar:connect', provider),
+  calendarDisconnect: (provider) => ipcRenderer.invoke('calendar:disconnect', provider),
+  calendarListCalendars: (source) => ipcRenderer.invoke('calendar:list-calendars', source),
+  calendarSetSelection: (source, ids) => ipcRenderer.invoke('calendar:set-selection', source, ids),
 });

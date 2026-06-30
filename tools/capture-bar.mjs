@@ -25,6 +25,7 @@ const { createStore } = await import(path.join(ROOT, 'src/main/store.js'));
 const { timeSourceFromEnv } = await import(path.join(ROOT, 'src/core/time-source.js'));
 const { getBarState } = await import(path.join(ROOT, 'src/core/schedule.js'));
 const { computeBarBounds } = await import(path.join(ROOT, 'src/core/geometry.js'));
+const { createFakeEventSource } = await import(path.join(ROOT, 'src/main/calendar/fake-events.js'));
 
 const outArg = process.argv.slice(2).find((a) => a.toLowerCase().endsWith('.png'));
 const OUT = outArg ? path.resolve(outArg) : path.join(os.tmpdir(), 'dayglassbar-capture.png');
@@ -40,8 +41,15 @@ app.whenReady().then(async () => {
       ? screen.getAllDisplays().find((d) => d.id === ap.displayId) || screen.getPrimaryDisplay()
       : screen.getPrimaryDisplay();
 
-  const state = getBarState(settings.schedule, timeSource.now(), {
+  const now = timeSource.now();
+  const fakeEvents = createFakeEventSource(process.env); // DAYGLASSBAR_FAKE_EVENTS
+  const events = fakeEvents.enabled ? fakeEvents.eventsAround(now) : [];
+  const c = ap.calendar || {};
+  const calendarEnabled = Boolean((c.google && c.google.enabled) || (c.outlook && c.outlook.enabled)) || fakeEvents.enabled;
+  const state = getBarState(settings.schedule, now, {
     tickIntervalMinutes: ap.ticks.enabled ? ap.ticks.intervalMinutes : 0,
+    events,
+    calendarEnabled,
   });
 
   // Drive via did-finish-load (not `await loadFile`): a transparent window can

@@ -25,6 +25,10 @@ function base() {
       track: { enabled: true, opacity: 0.18 },
       breakColor: '#8a8f98',
       ticks: { enabled: false, intervalMinutes: 60 },
+      calendar: {
+        google: { enabled: false, color: '#c98a3a' },
+        outlook: { enabled: false, color: '#4a9e9e', method: 'local' },
+      },
     },
     behavior: { autoLaunch: false, hover: { dwellMs: 350, expandedThickness: 56 } },
   };
@@ -148,4 +152,25 @@ test('appearance bounds', () => {
   const d = base();
   d.behavior.hover.dwellMs = 50;
   assert.equal(validateSettings(d).ok, false);
+});
+
+test('calendar: per-provider color/enabled and Outlook method are validated', () => {
+  const ok = base();
+  ok.appearance.calendar.google = { enabled: true, color: '#123456' };
+  ok.appearance.calendar.outlook = { enabled: true, color: '#abcdef', method: 'cloud' };
+  assert.equal(validateSettings(ok).ok, true);
+
+  const badColor = base();
+  badColor.appearance.calendar.google.color = 'orange';
+  const r = validateSettings(badColor);
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.some((e) => e.path === 'appearance.calendar' && e.code === 'v.calendar'));
+
+  const badMethod = base();
+  badMethod.appearance.calendar.outlook.method = 'ics';
+  assert.equal(validateSettings(badMethod).ok, false);
+
+  const missing = base();
+  delete missing.appearance.calendar.outlook;
+  assert.equal(validateSettings(missing).ok, false);
 });

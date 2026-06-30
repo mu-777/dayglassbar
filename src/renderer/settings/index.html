@@ -13,6 +13,9 @@
   </header>
 
   <main>
+    <!-- One-time first-launch guide (unhidden by settings.js when opened with ?firstRun=1). -->
+    <p class="onboarding-hint" id="onboarding-hint" data-i18n="onboarding.trayHint" hidden></p>
+
     <section>
       <h2 data-i18n="settings.general"></h2>
       <div class="grid">
@@ -91,6 +94,48 @@
     </section>
 
     <section>
+      <h2 data-i18n="settings.calendar"></h2>
+      <p class="note" data-i18n="settings.calendarNote"></p>
+      <p class="note warn" id="cal-enc-warn" hidden></p>
+
+      <div class="cal-provider-block">
+        <div class="grid">
+          <label class="check">
+            <input type="checkbox" id="f-google-enabled" />
+            <span data-i18n="calendar.showGoogle"></span>
+          </label>
+          <label>
+            <span class="lbl" data-i18n="field.calendarColor"></span>
+            <input type="color" id="f-google-color" />
+          </label>
+        </div>
+        <div class="cal-conn" id="google-conn"></div>
+        <div class="cal-calendars" id="google-cals"></div>
+      </div>
+
+      <div class="cal-provider-block">
+        <div class="grid">
+          <label class="check">
+            <input type="checkbox" id="f-outlook-enabled" />
+            <span data-i18n="calendar.showOutlook"></span>
+          </label>
+          <label>
+            <span class="lbl" data-i18n="field.calendarColor"></span>
+            <input type="color" id="f-outlook-color" />
+          </label>
+        </div>
+        <div class="cal-method">
+          <span class="lbl" data-i18n="calendar.outlookMethod"></span>
+          <label class="radio"><input type="radio" name="outlook-method" value="local" /><span data-i18n="calendar.methodLocal"></span></label>
+          <label class="radio"><input type="radio" name="outlook-method" value="cloud" /><span data-i18n="calendar.methodCloud"></span></label>
+        </div>
+        <p class="note" id="outlook-method-hint"></p>
+        <div class="cal-conn" id="outlook-conn"></div>
+        <div class="cal-calendars" id="outlook-cals"></div>
+      </div>
+    </section>
+
+    <section>
       <h2 data-i18n="settings.behavior"></h2>
       <div class="grid">
         <label class="check">
@@ -116,6 +161,7 @@
       <div class="io-actions">
         <button type="button" id="export" data-i18n="btn.export"></button>
         <button type="button" id="import" data-i18n="btn.import"></button>
+        <button type="button" id="diagnostics" data-i18n="btn.diagnostics" data-i18n-title="btn.diagnosticsHint"></button>
       </div>
       <div class="commit-actions">
         <span id="status" role="status"></span>

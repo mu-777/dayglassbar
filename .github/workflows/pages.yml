@@ -1,0 +1,43 @@
+name: pages
+
+# Publishes the static landing/release site in web/ to GitHub Pages.
+# Set-and-forget: it just uploads web/ as-is (no build step), so it runs in
+# seconds and effectively never breaks. The download links are filled in at
+# runtime by web/app.js from the GitHub Releases API, so this workflow does
+# NOT need to run on each release — only when web/ itself changes.
+#
+# One-time setup: repo Settings → Pages → Build and deployment → Source =
+# "GitHub Actions". Site URL: https://mu-777.github.io/dayglassbar/
+
+on:
+  push:
+    branches: [main, master]
+    paths:
+      - 'web/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; don't cancel an in-progress production deploy.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+      - id: deployment
+        uses: actions/deploy-pages@v4
