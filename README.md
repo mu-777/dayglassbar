@@ -1,6 +1,11 @@
 # DayGlassBar
 
-**For users: See **
+---
+
+> ⚠️ **【IMPORTANT】THIS README IS FOR DEVELOPERS**  
+> For users: see: https://mu-777.github.io/dayglassbar/
+
+---
 
 画面の縁に常駐する細いバーで、一日の区間（例: 9:00〜17:00）の**残り時間**を「グラスの水が減る」ように可視化するアンビエントなデスクトップアプリです。数字や色の変化に頼らず、視界の端で残量を体感することを狙います。
 
