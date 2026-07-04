@@ -17,9 +17,23 @@ export function isLanguage(lang) {
   return LANGUAGES.includes(lang);
 }
 
+// Map an OS locale tag (e.g. 'ja', 'ja-JP', 'zh-CN', 'zh-Hans-CN', 'en_US') to a
+// supported UI language. Only the primary subtag matters for our three languages;
+// unknown/empty locales fall back to the English default.
+export function languageFromLocale(locale) {
+  const tag = String(locale ?? '').trim().toLowerCase();
+  for (const lang of LANGUAGES) {
+    if (tag === lang || tag.startsWith(`${lang}-`) || tag.startsWith(`${lang}_`)) return lang;
+  }
+  return DEFAULT_LANGUAGE;
+}
+
 export const MESSAGES = {
   en: {
     'app.tagline': "Your day's remaining time, at the edge of your screen.",
+    'app.version': 'Version {version}',
+    'app.support': 'Support me on Ko-fi',
+    'app.supportHint': 'Support DayGlassBar on Ko-fi (opens in your browser). Free either way.',
 
     'settings.windowTitle': 'DayGlassBar Settings',
     'settings.general': 'General',
@@ -28,7 +42,7 @@ export const MESSAGES = {
       'End times past midnight use over-24h notation like <code>25:00</code> (e.g. 13:00–25:00 = until 1:00 the next day; the interval belongs to its start date). Breaks show in gray on the remaining side and disappear together with elapsed time once past.',
     'settings.overrides': 'Date overrides',
     'settings.overridesNote':
-      'Listed dates take priority over the weekly defaults. To make a day off, uncheck "Enabled".',
+      'Listed dates take priority over the weekly defaults. To make a day off, uncheck "Enabled". Past dates are removed automatically.',
     'settings.addOverride': 'Override this date',
     'settings.appearance': 'Appearance',
     'settings.behavior': 'Behavior',
@@ -56,7 +70,7 @@ export const MESSAGES = {
     'field.calendarColor': 'Event color',
     'calendar.outlookMethod': 'Outlook connection',
     'calendar.methodLocal': 'Local (no sign-in)',
-    'calendar.methodCloud': 'Cloud API (sign in)',
+    'calendar.methodCloud': 'Cloud API (coming soon)',
     'calendar.localOutlookHint':
       'Reads the classic Outlook desktop app on this PC — no sign-in, works with work accounts. Windows + classic Outlook only (not the new Outlook or the web).',
     'calendar.methodCloudHint':
@@ -69,6 +83,7 @@ export const MESSAGES = {
     'calendar.connected': 'Connected.',
     'calendar.disconnected': 'Disconnected.',
     'calendar.connectFailed': 'Couldn’t connect ({error}).',
+    'calendar.connectError': 'Connection problem ({error}). Events may not be up to date.',
     'calendar.encUnavailable': 'OS secure storage is unavailable; sign-in won’t persist after a restart.',
     'calendar.chooseCalendars': 'Choose calendars…',
     'calendar.calendarsHint': 'Pick which calendars to show. If none are checked, only your primary calendar is shown.',
@@ -85,16 +100,22 @@ export const MESSAGES = {
 
     'label.enabled': 'Enabled',
     'btn.addBreak': '+ Break',
+    'btn.copyToWeekdays': '→ weekdays',
+    'btn.copyToAll': '→ all days',
+    'title.copyToWeekdays': 'Copy this day to Monday–Friday',
+    'title.copyToAll': 'Copy this day to every day',
     'btn.export': 'Export',
     'btn.import': 'Import',
     'btn.diagnostics': 'Save diagnostics',
     'btn.diagnosticsHint': 'Bundle logs and app info into a .zip to send to support when something goes wrong.',
+    'btn.reset': 'Reset to defaults',
     'btn.save': 'Save & apply',
     'title.removeBreak': 'Remove this break',
     'title.removeOverride': 'Remove this override',
     'option.displayAuto': 'Primary (auto)',
     'displays.primarySuffix': ' · Primary',
     'sep.range': '–',
+    'confirm.reset': 'Reset all settings to their defaults? Calendar connections (sign-ins) are kept.',
 
     'status.saved': 'Saved and applied.',
     'status.saveFailed': "Couldn't save (check the errors).",
@@ -104,8 +125,15 @@ export const MESSAGES = {
     'status.importFailed': 'Import failed (check the errors).',
     'status.diagnosticsSaved': 'Diagnostics saved.',
     'status.diagnosticsFailed': 'Couldn’t save diagnostics ({error}).',
+    'status.reset': 'Settings reset to defaults.',
     'error.unknown': 'Unknown error',
     'error.importGeneric': "Couldn't import.",
+
+    'updates.check': 'Check for updates',
+    'updates.checking': 'Checking…',
+    'updates.upToDate': 'You have the latest version.',
+    'updates.available': 'New version {version} is available',
+    'updates.failed': 'Couldn’t check for updates ({error}).',
 
     'weekday.short.mon': 'Mon',
     'weekday.short.tue': 'Tue',
@@ -122,8 +150,9 @@ export const MESSAGES = {
     'weekday.long.sat': 'Saturday',
     'weekday.long.sun': 'Sunday',
 
-    'bar.outside': 'Outside',
+    'bar.outside': 'Outside schedule',
     'bar.remainingFmt': '{v} left',
+    'bar.nextFmt': 'Next {v}',
 
     'tray.settings': 'Settings…',
     'tray.quit': 'Quit',
@@ -134,6 +163,8 @@ export const MESSAGES = {
 
     'onboarding.trayHint':
       'DayGlassBar runs in the system tray. Open these settings any time from its tray icon (right-click, or double-click). On Windows it may be tucked under the “^” arrow — pin it to keep it in view.',
+    'onboarding.autoLaunchNote':
+      'It also starts automatically when you sign in, so the bar is always at the edge of your screen. You can turn this off under “Launch at login” below.',
 
     'dialog.exportTitle': 'Export settings',
     'dialog.importTitle': 'Import settings',
@@ -172,6 +203,9 @@ export const MESSAGES = {
 
   ja: {
     'app.tagline': '一日の残り時間を、画面の縁で。',
+    'app.version': 'バージョン {version}',
+    'app.support': 'Ko-fi で支援する',
+    'app.supportHint': 'Ko-fi で DayGlassBar を支援（ブラウザで開きます）。支援しなくても無料です。',
 
     'settings.windowTitle': 'DayGlassBar 設定',
     'settings.general': '全般',
@@ -180,7 +214,7 @@ export const MESSAGES = {
       '日跨ぎは終了を <code>25:00</code> のように24時超で表記します（例: 13:00〜25:00 = 翌1:00まで。区間はその開始日に帰属）。休憩は「残り側」にグレーで表示され、過ぎた休憩は経過分と一緒に消えます。',
     'settings.overrides': '特定日の上書き',
     'settings.overridesNote':
-      '指定した日は曜日設定より優先されます。休みにしたい日は「有効」を外してください。',
+      '指定した日は曜日設定より優先されます。休みにしたい日は「有効」を外してください。過ぎた日付は自動的に削除されます。',
     'settings.addOverride': 'この日を上書き',
     'settings.appearance': '表示',
     'settings.behavior': '動作',
@@ -208,7 +242,7 @@ export const MESSAGES = {
     'field.calendarColor': '予定の色',
     'calendar.outlookMethod': 'Outlook の接続方法',
     'calendar.methodLocal': 'ローカル（サインイン不要）',
-    'calendar.methodCloud': 'クラウドAPI（サインイン）',
+    'calendar.methodCloud': 'クラウドAPI（準備中）',
     'calendar.localOutlookHint':
       'この PC のクラシック Outlook（デスクトップ版）を読みます。サインイン不要・職場アカウントでも可。Windows＋クラシック版のみ（新しい Outlook や Web 版では不可）。',
     'calendar.methodCloudHint':
@@ -221,6 +255,7 @@ export const MESSAGES = {
     'calendar.connected': '接続しました',
     'calendar.disconnected': '接続を解除しました',
     'calendar.connectFailed': '接続できませんでした（{error}）',
+    'calendar.connectError': '接続に問題があります（{error}）。予定が最新でない場合があります。',
     'calendar.encUnavailable': 'OS の安全な保管が使えないため、再起動後にサインインが保持されません。',
     'calendar.chooseCalendars': '表示するカレンダーを選択…',
     'calendar.calendarsHint': '表示するカレンダーを選びます。未選択の場合はプライマリ（既定）カレンダーのみ表示します。',
@@ -237,16 +272,22 @@ export const MESSAGES = {
 
     'label.enabled': '有効',
     'btn.addBreak': '+ 休憩',
+    'btn.copyToWeekdays': '→ 平日',
+    'btn.copyToAll': '→ 全曜日',
+    'title.copyToWeekdays': 'この曜日の設定を月〜金にコピー',
+    'title.copyToAll': 'この曜日の設定をすべての曜日にコピー',
     'btn.export': 'エクスポート',
     'btn.import': 'インポート',
     'btn.diagnostics': '診断情報を保存',
     'btn.diagnosticsHint': '不具合時にサポートへ送るため、ログとアプリ情報を zip にまとめて保存します。',
+    'btn.reset': '初期設定に戻す',
     'btn.save': '保存して適用',
     'title.removeBreak': 'この休憩を削除',
     'title.removeOverride': 'この上書きを削除',
     'option.displayAuto': 'プライマリ（自動）',
     'displays.primarySuffix': '・プライマリ',
     'sep.range': '〜',
+    'confirm.reset': 'すべての設定を初期値に戻しますか？カレンダーの接続（サインイン）は保持されます。',
 
     'status.saved': '保存して適用しました',
     'status.saveFailed': '保存できませんでした（エラーを確認してください）',
@@ -256,8 +297,15 @@ export const MESSAGES = {
     'status.importFailed': 'インポートできませんでした（エラーを確認してください）',
     'status.diagnosticsSaved': '診断情報を保存しました',
     'status.diagnosticsFailed': '診断情報を保存できませんでした（{error}）',
+    'status.reset': '初期設定に戻しました',
     'error.unknown': '不明なエラー',
     'error.importGeneric': 'インポートできませんでした',
+
+    'updates.check': '更新を確認',
+    'updates.checking': '確認中…',
+    'updates.upToDate': '最新版です',
+    'updates.available': '新しいバージョン {version} があります',
+    'updates.failed': '更新を確認できませんでした（{error}）',
 
     'weekday.short.mon': '月',
     'weekday.short.tue': '火',
@@ -276,6 +324,7 @@ export const MESSAGES = {
 
     'bar.outside': '区間外',
     'bar.remainingFmt': '残り {v}',
+    'bar.nextFmt': '次は {v}',
 
     'tray.settings': '設定...',
     'tray.quit': '終了',
@@ -286,6 +335,8 @@ export const MESSAGES = {
 
     'onboarding.trayHint':
       'DayGlassBar はタスクトレイに常駐します。設定はいつでもトレイのアイコンから開けます（右クリック、またはダブルクリック）。Windows では「^」の中に隠れていることがあります。ピン留めすると常に表示されます。',
+    'onboarding.autoLaunchNote':
+      'ログイン時にも自動で起動し、バーは常に画面の縁に表示されます。下の「ログイン時に自動起動」でオフにできます。',
 
     'dialog.exportTitle': '設定をエクスポート',
     'dialog.importTitle': '設定をインポート',
@@ -324,6 +375,9 @@ export const MESSAGES = {
 
   zh: {
     'app.tagline': '在屏幕边缘，呈现一天的剩余时间。',
+    'app.version': '版本 {version}',
+    'app.support': '在 Ko-fi 上支持我',
+    'app.supportHint': '在 Ko-fi 上支持 DayGlassBar（在浏览器中打开）。无论是否支持都免费。',
 
     'settings.windowTitle': 'DayGlassBar 设置',
     'settings.general': '常规',
@@ -332,7 +386,7 @@ export const MESSAGES = {
       '跨夜的结束时间使用超过24小时的表示法，如 <code>25:00</code>（例：13:00–25:00 = 到次日 1:00；区间归属于其开始日期）。休息以灰色显示在“剩余”一侧，已过去的休息会随已用时间一起消失。',
     'settings.overrides': '特定日期覆盖',
     'settings.overridesNote':
-      '指定的日期优先于每周设置。要设为休息日，请取消勾选“启用”。',
+      '指定的日期优先于每周设置。要设为休息日，请取消勾选“启用”。已过去的日期会自动删除。',
     'settings.addOverride': '覆盖此日期',
     'settings.appearance': '外观',
     'settings.behavior': '行为',
@@ -360,7 +414,7 @@ export const MESSAGES = {
     'field.calendarColor': '日程颜色',
     'calendar.outlookMethod': 'Outlook 连接方式',
     'calendar.methodLocal': '本地（无需登录）',
-    'calendar.methodCloud': '云 API（登录）',
+    'calendar.methodCloud': '云 API（准备中）',
     'calendar.localOutlookHint':
       '读取本机的经典 Outlook 桌面版——无需登录，支持工作账户。仅限 Windows + 经典 Outlook（不支持新版 Outlook 或网页版）。',
     'calendar.methodCloudHint':
@@ -373,6 +427,7 @@ export const MESSAGES = {
     'calendar.connected': '已连接。',
     'calendar.disconnected': '已断开连接。',
     'calendar.connectFailed': '无法连接（{error}）。',
+    'calendar.connectError': '连接出现问题（{error}）。日程可能不是最新的。',
     'calendar.encUnavailable': '系统安全存储不可用；重启后登录将不会保留。',
     'calendar.chooseCalendars': '选择要显示的日历…',
     'calendar.calendarsHint': '选择要显示的日历。如果未勾选任何项，则只显示主日历。',
@@ -389,16 +444,22 @@ export const MESSAGES = {
 
     'label.enabled': '启用',
     'btn.addBreak': '+ 休息',
+    'btn.copyToWeekdays': '→ 工作日',
+    'btn.copyToAll': '→ 每天',
+    'title.copyToWeekdays': '将此日设置复制到周一至周五',
+    'title.copyToAll': '将此日设置复制到每一天',
     'btn.export': '导出',
     'btn.import': '导入',
     'btn.diagnostics': '保存诊断信息',
     'btn.diagnosticsHint': '将日志和应用信息打包为 zip，便于在出现问题时发送给支持。',
+    'btn.reset': '恢复默认设置',
     'btn.save': '保存并应用',
     'title.removeBreak': '删除此休息',
     'title.removeOverride': '删除此覆盖',
     'option.displayAuto': '主显示器（自动）',
     'displays.primarySuffix': ' · 主显示器',
     'sep.range': '–',
+    'confirm.reset': '将所有设置恢复为默认值？日历连接（登录）将保留。',
 
     'status.saved': '已保存并应用。',
     'status.saveFailed': '保存失败（请检查错误）。',
@@ -408,8 +469,15 @@ export const MESSAGES = {
     'status.importFailed': '导入失败（请检查错误）。',
     'status.diagnosticsSaved': '已保存诊断信息。',
     'status.diagnosticsFailed': '无法保存诊断信息（{error}）。',
+    'status.reset': '已恢复默认设置。',
     'error.unknown': '未知错误',
     'error.importGeneric': '导入失败。',
+
+    'updates.check': '检查更新',
+    'updates.checking': '检查中…',
+    'updates.upToDate': '已是最新版本。',
+    'updates.available': '有新版本 {version}',
+    'updates.failed': '无法检查更新（{error}）。',
 
     'weekday.short.mon': '一',
     'weekday.short.tue': '二',
@@ -428,6 +496,7 @@ export const MESSAGES = {
 
     'bar.outside': '区间外',
     'bar.remainingFmt': '剩余 {v}',
+    'bar.nextFmt': '下次 {v}',
 
     'tray.settings': '设置…',
     'tray.quit': '退出',
@@ -438,6 +507,8 @@ export const MESSAGES = {
 
     'onboarding.trayHint':
       'DayGlassBar 常驻于系统托盘。随时可从托盘图标打开本设置（右键，或双击）。在 Windows 上它可能隐藏在“^”中——将其固定即可常显。',
+    'onboarding.autoLaunchNote':
+      '它还会在您登录时自动启动，让光条始终显示在屏幕边缘。可在下方的“登录时自动启动”将其关闭。',
 
     'dialog.exportTitle': '导出设置',
     'dialog.importTitle': '导入设置',

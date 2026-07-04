@@ -3,6 +3,9 @@
 // gitignored local file). `mapEvents` is pure and unit-tested.
 import { CLIENT_IDS } from './config.js';
 
+// Per-request cap — same rationale as google.js: keep a wedged GET inside the 60s cadence.
+const FETCH_TIMEOUT_MS = 10000;
+
 export const config = {
   id: 'microsoft',
   label: 'Microsoft',
@@ -48,7 +51,7 @@ export async function fetchCalendars(accessToken) {
   const url = new URL('https://graph.microsoft.com/v1.0/me/calendars');
   url.searchParams.set('$select', 'id,name,isDefaultCalendar');
   url.searchParams.set('$top', '100');
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (res.status === 401) throw Object.assign(new Error('unauthorized'), { code: 401 });
   if (!res.ok) throw new Error(`graph calendars ${res.status}`);
   return mapCalendars(await res.json());
@@ -68,6 +71,7 @@ export async function fetchEvents(accessToken, startMs, endMs, calendarId = null
   url.searchParams.set('$top', '50');
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}`, Prefer: 'outlook.timezone="UTC"' },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (res.status === 401) throw Object.assign(new Error('unauthorized'), { code: 401 });
   if (!res.ok) throw new Error(`graph events ${res.status}`);
@@ -77,6 +81,7 @@ export async function fetchEvents(accessToken, startMs, endMs, calendarId = null
 export async function fetchEmail(accessToken) {
   const res = await fetch('https://graph.microsoft.com/v1.0/me', {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) return '';
   const j = await res.json();

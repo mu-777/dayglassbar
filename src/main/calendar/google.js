@@ -4,6 +4,10 @@
 // (no Electron) so this module stays testable.
 import { CLIENT_IDS, CLIENT_SECRETS } from './config.js';
 
+// Per-request cap. Each call is a small GET; 10s is generous yet keeps a wedged request —
+// several calendars are fetched sequentially per pass — well inside the 60s cloud cadence.
+const FETCH_TIMEOUT_MS = 10000;
+
 export const config = {
   id: 'google',
   label: 'Google',
@@ -54,7 +58,7 @@ export async function fetchCalendars(accessToken) {
   const url = new URL('https://www.googleapis.com/calendar/v3/users/me/calendarList');
   url.searchParams.set('minAccessRole', 'reader'); // skip calendars we can't read events from
   url.searchParams.set('maxResults', '250');
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (res.status === 401) throw Object.assign(new Error('unauthorized'), { code: 401 });
   if (!res.ok) throw new Error(`google calendarList ${res.status}`);
   return mapCalendars(await res.json());
@@ -69,7 +73,7 @@ export async function fetchEvents(accessToken, startMs, endMs, calendarId = 'pri
   url.searchParams.set('singleEvents', 'true'); // expand recurrences into instances
   url.searchParams.set('orderBy', 'startTime');
   url.searchParams.set('maxResults', '50');
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` }, signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if (res.status === 401) throw Object.assign(new Error('unauthorized'), { code: 401 });
   if (!res.ok) throw new Error(`google events ${res.status}`);
   return mapEvents(await res.json());
@@ -78,6 +82,7 @@ export async function fetchEvents(accessToken, startMs, endMs, calendarId = 'pri
 export async function fetchEmail(accessToken) {
   const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
   });
   if (!res.ok) return '';
   return (await res.json()).email || '';

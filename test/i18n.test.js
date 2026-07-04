@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_NAMES, MESSAGES, isLanguage, t } from '../src/core/i18n.js';
+import { LANGUAGES, DEFAULT_LANGUAGE, LANGUAGE_NAMES, MESSAGES, isLanguage, t, languageFromLocale } from '../src/core/i18n.js';
 
 test('supported languages and English default', () => {
   assert.deepEqual(LANGUAGES, ['en', 'ja', 'zh']);
@@ -39,4 +39,18 @@ test('t returns the localized string and interpolates params', () => {
 test('t falls back to English for an unknown language, and to the key for an unknown key', () => {
   assert.equal(t('xx', 'tray.quit'), 'Quit');
   assert.equal(t('en', 'no.such.key'), 'no.such.key');
+});
+
+test('languageFromLocale maps OS locale tags to a supported language (primary subtag only)', () => {
+  assert.equal(languageFromLocale('ja'), 'ja');
+  assert.equal(languageFromLocale('ja-JP'), 'ja');
+  assert.equal(languageFromLocale('JA-JP'), 'ja');
+  assert.equal(languageFromLocale('zh'), 'zh');
+  assert.equal(languageFromLocale('zh-CN'), 'zh');
+  assert.equal(languageFromLocale('zh-Hans-CN'), 'zh');
+  assert.equal(languageFromLocale('zh_CN'), 'zh');
+  assert.equal(languageFromLocale('en-US'), 'en');
+  assert.equal(languageFromLocale('fr-FR'), 'en');
+  assert.equal(languageFromLocale(''), 'en');
+  assert.equal(languageFromLocale(undefined), 'en');
 });

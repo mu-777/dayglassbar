@@ -128,6 +128,52 @@ export function getActiveDaySummary(schedule, nowMs) {
   };
 }
 
+// The next interval that has not started yet, scanning forward from today (inclusive).
+// Only called when there is no *active* interval right now (bar mode 'empty'), so we
+// never need to consider "now falls inside some interval" — that case is by definition
+// getActiveInterval's job and would mean the bar isn't in 'empty' mode to begin with.
+// horizonDays defaults to a bit over a week so a schedule with only one enabled weekday
+// still finds it. Returns null if nothing enabled turns up within the horizon.
+export function getNextInterval(schedule, nowMs, horizonDays = 8) {
+  const now = new Date(nowMs);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  for (let i = 0; i < horizonDays; i++) {
+    const day = addDays(today, i);
+    const rec = resolveDay(schedule, day);
+    if (!rec.enabled || rec.startMin == null) continue;
+    const startMs = msAt(day, rec.startMin);
+    if (startMs > nowMs) {
+      return {
+        anchorKey: dateKeyOf(day),
+        anchorMidnightMs: msAt(day, 0),
+        startMs,
+        endMs: msAt(day, rec.endMin),
+      };
+    }
+  }
+  return null;
+}
+
+// Drop override entries that are safely in the past, so the list doesn't grow forever
+// (D-3). The cutoff is *yesterday's* dateKey, not today's: an overnight interval (end >
+// 24:00) that started yesterday can still be running into today, so yesterday's entry
+// must survive one extra day past its calendar date. dateKeyOf's 'YYYY-MM-DD' format
+// sorts identically to date order under plain string comparison, so `<` works directly
+// without parsing. Keys that don't parse as a date are left alone (never pruned).
+export function prunePastOverrides(overrides, nowMs) {
+  const cutoff = dateKeyOf(addDays(new Date(nowMs), -1));
+  const kept = {};
+  let changed = false;
+  for (const [key, rec] of Object.entries(overrides || {})) {
+    if (parseDateKey(key) && key < cutoff) {
+      changed = true; // strictly before yesterday: drop it
+      continue;
+    }
+    kept[key] = rec;
+  }
+  return { changed, overrides: kept };
+}
+
 const clamp01 = (v) => Math.min(1, Math.max(0, v));
 
 // Segments covering the remaining region [nowFrac, 1] of the axis.

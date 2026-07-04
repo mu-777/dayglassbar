@@ -11,8 +11,9 @@ import { createAppTray } from './tray.js';
 import { createCalendarService } from './calendar/index.js';
 import { timeSourceFromEnv, isSimulated } from '../core/time-source.js';
 import { validateSettings } from '../core/validate.js';
-import { getActiveDaySummary, formatMinutes, dateKeyOf } from '../core/schedule.js';
-import { t, LANGUAGES, DEFAULT_LANGUAGE, MESSAGES, LANGUAGE_NAMES } from '../core/i18n.js';
+import { getActiveDaySummary, formatMinutes, dateKeyOf, prunePastOverrides } from '../core/schedule.js';
+import { t, LANGUAGES, DEFAULT_LANGUAGE, MESSAGES, LANGUAGE_NAMES, languageFromLocale } from '../core/i18n.js';
+import { isNewerVersion } from '../core/version.js';
 
 // Single instance (spec 4.5). A second launch just opens the settings window
 // of the running instance.
@@ -72,7 +73,27 @@ function main() {
       displays: screen.getAllDisplays().length,
     });
 
-    store = createStore(app.getPath('userData'), log.child('store'));
+    // app.getLocale() needs the app ready, which we are here — derive this machine's
+    // default UI language from it so a first run (and any settings.json missing
+    // `language`) comes up in the OS's language rather than hardcoded English.
+    store = createStore(app.getPath('userData'), log.child('store'), {
+      defaultLanguage: languageFromLocale(app.getLocale()),
+    });
+
+    // D-3: date overrides would otherwise accumulate forever. Prune anything strictly
+    // before yesterday on every startup — yesterday itself is kept in case an overnight
+    // interval that started yesterday is still running into today (prunePastOverrides).
+    {
+      const before = store.get().schedule.overrides;
+      const { changed, overrides } = prunePastOverrides(before, timeSource.now());
+      if (changed) {
+        const next = structuredClone(store.get());
+        next.schedule.overrides = overrides;
+        store.save(next);
+        log.info('pruned past overrides', { count: Object.keys(before).length - Object.keys(overrides).length });
+      }
+    }
+
     calendar = createCalendarService({
       timeSource,
       getCalendarSettings: () => store.get().appearance.calendar,
@@ -135,7 +156,13 @@ function main() {
   function applyAutoLaunch() {
     if (process.platform === 'linux') return; // out of scope (spec 1)
     try {
-      app.setLoginItemSettings({ openAtLogin: Boolean(store.get().behavior.autoLaunch) });
+      const opts = { openAtLogin: Boolean(store.get().behavior.autoLaunch) };
+      // The portable Windows build self-extracts to a per-run temp folder, so
+      // process.execPath points at a path that vanishes after the process exits;
+      // registering it would break the login item on the next login. electron-builder
+      // exposes the real launcher path via PORTABLE_EXECUTABLE_FILE — use that instead.
+      if (process.platform === 'win32') opts.path = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+      app.setLoginItemSettings(opts);
     } catch (err) {
       log.warn('setLoginItemSettings failed', err);
     }
@@ -144,16 +171,37 @@ function main() {
   function registerIpc() {
     const ipcLog = log.child('ipc');
     ipcMain.handle('settings:get', () => store.get());
-    ipcMain.handle('settings:validate', (_e, candidate) => validateSettings(candidate));
     ipcMain.handle('settings:save', (_e, candidate) => {
       const result = validateSettings(candidate);
       if (result.ok) {
-        store.save(candidate); // store.onChange fans out to the bar etc.
-        ipcLog.debug('settings saved');
+        try {
+          store.save(candidate); // store.onChange fans out to the bar etc.
+          ipcLog.debug('settings saved');
+        } catch (err) {
+          // Disk full / permissions: validation passed but the write itself failed —
+          // report it the same way export/diagnostics do, instead of pretending it saved.
+          ipcLog.error('settings save failed (write)', err);
+          return { ok: false, errors: [], error: tr('io.writeFail', { msg: err.message }) };
+        }
       } else {
         ipcLog.warn('settings save rejected (validation)', { errors: result.errors });
       }
       return result;
+    });
+    // Reset settings.json to this store's instance defaults (D-1) — DEFAULT_SETTINGS with
+    // the machine's OS-locale language, so a reset lands the user back where a fresh
+    // install on this machine would. Deliberately does NOT touch calendar-accounts.enc —
+    // OAuth connections and calendar selections are a separate, encrypted store
+    // (invariant #7), so a reset never signs the user out.
+    ipcMain.handle('settings:reset', () => {
+      try {
+        store.save(store.getDefaults());
+        ipcLog.info('settings reset to defaults');
+        return { ok: true };
+      } catch (err) {
+        ipcLog.error('settings reset failed (write)', err);
+        return { ok: false, error: tr('io.writeFail', { msg: err.message }) };
+      }
     });
     // Calendar connection state (no secrets leave the main process — just provider,
     // connected flag, account email). The settings UI queries this, not settings.json.
@@ -202,6 +250,33 @@ function main() {
     ipcMain.handle('calendar:set-selection', (_e, source, ids) => {
       ipcLog.info('calendar selection set', { source, count: Array.isArray(ids) ? ids.length : 0 });
       return { ok: true, selected: calendar.setCalendarSelection(source, ids) };
+    });
+    // Open an external link (the settings UI's donation link) in the system browser.
+    // Restricted to http(s) so a compromised renderer can't open file:// or app: URLs.
+    ipcMain.handle('shell:open-external', (_e, url) => {
+      if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
+    });
+    // App version (from package.json via Electron) so the settings UI can show it —
+    // the only place an installed user can read the version without the log/diagnostics.
+    ipcMain.handle('app:version', () => app.getVersion());
+    // Manual update check (settings footer button only). No automatic/background
+    // polling — checking for updates unprompted would be a "rush" cue we don't want
+    // (invariant #4), so this only ever runs when the user clicks the button.
+    ipcMain.handle('app:check-updates', async () => {
+      try {
+        const res = await fetch('https://api.github.com/repos/mu-777/dayglassbar/releases/latest', {
+          headers: { Accept: 'application/vnd.github+json' },
+          signal: AbortSignal.timeout(10000), // the button sits disabled on "Checking…" until this settles — never hang it
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        const latest = String(data.tag_name || '').replace(/^v/, '');
+        const current = app.getVersion();
+        return { ok: true, current, latest, hasUpdate: isNewerVersion(latest, current), url: data.html_url || 'https://github.com/mu-777/dayglassbar/releases' };
+      } catch (err) {
+        ipcLog.warn('update check failed', { error: err.message });
+        return { ok: false, error: err.message };
+      }
     });
     // Whole catalog (all languages) so the settings UI can switch language live.
     ipcMain.handle('i18n:catalog', () => ({
@@ -261,7 +336,12 @@ function main() {
         ipcLog.warn('settings import rejected (validation)', { file: filePaths[0], errors: result.errors });
         return { ok: false, errors: result.errors };
       }
-      store.save(candidate); // store.onChange fans out to the bar etc.
+      try {
+        store.save(candidate); // store.onChange fans out to the bar etc.
+      } catch (err) {
+        ipcLog.error('settings import failed (write)', err);
+        return { ok: false, error: tr('io.writeFail', { msg: err.message }) };
+      }
       ipcLog.info('settings imported', { file: filePaths[0] });
       return { ok: true };
     });

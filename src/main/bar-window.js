@@ -14,7 +14,7 @@
 //     it collapses.
 import path from 'node:path';
 import { BrowserWindow, screen, app } from 'electron';
-import { getBarState } from '../core/schedule.js';
+import { getBarState, getNextInterval, formatMinutes, dateKeyOf, parseDateKey, WEEKDAY_KEYS } from '../core/schedule.js';
 import { computeBarBounds, pointInBounds } from '../core/geometry.js';
 import { t, DEFAULT_LANGUAGE } from '../core/i18n.js';
 import { createFakeEventSource } from './calendar/fake-events.js';
@@ -38,7 +38,6 @@ export function createBarController({ store, timeSource, calendar = null, log = 
   let outsideStreak = 0;
   let pollTimer = null;
   let tickTimer = null;
-  let lastMode = null;
   let quitting = false;
   let displayFallbackActive = false; // log only when the configured-display fallback toggles
 
@@ -130,6 +129,13 @@ export function createBarController({ store, timeSource, calendar = null, log = 
     win.webContents.on('did-finish-load', () => pushState());
     win.webContents.on('did-fail-load', (_e, code, desc, url) =>
       log?.error('bar renderer failed to load', { code, desc, url }));
+    win.webContents.on('render-process-gone', (_e, details) => {
+      log?.error('bar renderer gone; reloading', details);
+      // The bar is always-resident and has no fallback UI: if its renderer crashes it would
+      // otherwise stay blank until the next app restart. Reload it so the bar comes back on
+      // its own (a short delay avoids hot-looping if the crash is immediate/repeated).
+      setTimeout(() => { if (win && !win.isDestroyed()) win.webContents.reload(); }, 1000);
+    });
     win.loadFile('src/renderer/bar/index.html');
     const ap = appearance();
     log?.info('bar window created', { edge: ap.edge, thickness: ap.thickness, displayId: ap.displayId, transparent: !WSL_VISIBLE });
@@ -146,7 +152,7 @@ export function createBarController({ store, timeSource, calendar = null, log = 
     // The service already returns [] when the overlay is disabled or no account is
     // connected. The fake source (dev) both supplies events and forces the overlay on so
     // bands show without toggling settings; in production calendarEnabled follows the setting.
-    const serviceEvents = calendar ? calendar.eventsAround(now) : [];
+    const serviceEvents = calendar ? calendar.getEvents() : [];
     const events = fakeEvents.enabled ? [...serviceEvents, ...fakeEvents.eventsAround(now)] : serviceEvents;
     const c = ap.calendar || {};
     const calendarEnabled = Boolean((c.google && c.google.enabled) || (c.outlook && c.outlook.enabled)) || fakeEvents.enabled;
@@ -161,11 +167,23 @@ export function createBarController({ store, timeSource, calendar = null, log = 
       win.showInactive();
       raise(); // re-assert top-most immediately on show; poll() keeps it raised after
     }
-    lastMode = state.mode;
     // The bar renderer holds no language logic: it gets its few words from here,
     // localized to the current setting (CLAUDE.md invariant #3 — text only on hover).
     const lang = settings.language || DEFAULT_LANGUAGE;
     const strings = { outside: t(lang, 'bar.outside'), remainingFmt: t(lang, 'bar.remainingFmt') };
+    // Outside any interval, also say *when* the next one starts (D-4) so a hover isn't
+    // just "nothing right now" — e.g. "Next Mon 9:00". Only meaningful in 'empty' mode.
+    if (state.mode === 'empty') {
+      const next = getNextInterval(settings.schedule, now);
+      if (next) {
+        const startLabel = formatMinutes(Math.round((next.startMs - next.anchorMidnightMs) / 60000));
+        const startsToday = next.anchorKey === dateKeyOf(new Date(now));
+        const label = startsToday
+          ? startLabel
+          : `${t(lang, `weekday.short.${WEEKDAY_KEYS[parseDateKey(next.anchorKey).getDay()]}`)} ${startLabel}`;
+        strings.next = t(lang, 'bar.nextFmt', { v: label });
+      }
+    }
     win.webContents.send('bar:state', { state, appearance: ap, expanded, strings });
   }
 

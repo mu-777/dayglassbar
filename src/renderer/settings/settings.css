@@ -32,6 +32,10 @@ body {
 }
 
 header {
+  display: flex;
+  align-items: center; /* vertically center the support button against the title + tagline block */
+  justify-content: space-between;
+  gap: 12px;
   padding: 16px 20px 12px;
   /* the bar motif: a thin filled rule that "drains" right→left under the title */
   border-bottom: 2px solid transparent;
@@ -43,6 +47,35 @@ header h1 {
   font-size: 17px;
   font-weight: 600;
   letter-spacing: 0.02em;
+}
+
+/* Ko-fi support button, right-aligned next to the title. Beige pill per Ko-fi's brand
+   asset; the label uses the app's own font and dark ink (var(--bg)) so it reads on the
+   beige and belongs to the app. Still one quiet button — no popup/nag (CLAUDE.md #4). */
+.support-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: #E3D6C6;
+  color: var(--bg);
+  font-family: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.support-link:hover {
+  filter: brightness(0.95);
+}
+.support-link__icon {
+  width: 22px;
+  height: auto;
+  display: block;
+  flex: none;
 }
 
 .tagline {
@@ -117,6 +150,19 @@ code {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+
+/* D-2: "copy this day to weekdays/all days" buttons, pinned to the row's right edge */
+.copy-actions {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+
+.copy-actions button {
+  font-size: 11px;
+  white-space: nowrap;
 }
 
 .day-editor .when {
@@ -303,6 +349,12 @@ input[type="range"] {
   display: none;
 }
 
+/* connect-error warning sits in the same flex row as status+button but takes its own line */
+.cal-conn .note.warn {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+}
+
 .cal-calendars {
   margin-top: 8px;
 }
@@ -412,4 +464,24 @@ footer {
 #status {
   color: var(--muted);
   font-size: 12px;
+}
+
+/* Quiet "About" line — the installed build number, plus the manual update-check button
+   (F-3) right beside it. Muted so it never competes with the actions above. */
+.app-version {
+  margin: 10px 0 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.app-version button {
+  font-size: 11px;
+  padding: 2px 8px;
+}
+
+.app-version a {
+  color: var(--accent);
 }

@@ -66,10 +66,18 @@ jobs:
             dist/*.dmg
             dist/*.blockmap
 
+      # Release body = the CHANGELOG.md section for this tag (single source of truth).
+      # bash is available on both windows/macos runners; ${GITHUB_REF_NAME#v} strips the "v".
+      - name: Extract release notes from CHANGELOG
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: node tools/extract-changelog.mjs "${GITHUB_REF_NAME#v}" > RELEASE_NOTES.md
+
       - name: Publish release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
+          body_path: RELEASE_NOTES.md
           files: |
             dist/*.exe
             dist/*.dmg

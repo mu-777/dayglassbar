@@ -4,9 +4,11 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('api', {
   getSettings: () => ipcRenderer.invoke('settings:get'),
+  getAppVersion: () => ipcRenderer.invoke('app:version'),
+  checkUpdates: () => ipcRenderer.invoke('app:check-updates'),
   getI18n: () => ipcRenderer.invoke('i18n:catalog'),
-  validateSettings: (settings) => ipcRenderer.invoke('settings:validate', settings),
   saveSettings: (settings) => ipcRenderer.invoke('settings:save', settings),
+  resetSettings: () => ipcRenderer.invoke('settings:reset'),
   listDisplays: () => ipcRenderer.invoke('displays:list'),
   exportSettings: () => ipcRenderer.invoke('settings:export'),
   importSettings: () => ipcRenderer.invoke('settings:import'),
@@ -16,4 +18,7 @@ contextBridge.exposeInMainWorld('api', {
   calendarDisconnect: (provider) => ipcRenderer.invoke('calendar:disconnect', provider),
   calendarListCalendars: (source) => ipcRenderer.invoke('calendar:list-calendars', source),
   calendarSetSelection: (source, ids) => ipcRenderer.invoke('calendar:set-selection', source, ids),
+  // Open a vetted external URL (the donation link) in the system browser. The bar
+  // window has no equivalent — it stays click-through and never opens anything.
+  openExternal: (url) => ipcRenderer.invoke('shell:open-external', url),
 });

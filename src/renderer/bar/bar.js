@@ -81,7 +81,16 @@
         }
       }
       if (state.ticks && state.ticks.length) {
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+        // The window is transparent, so whatever sits behind it is arbitrary — a single
+        // color line can't guarantee contrast (white ticks vanish over white windows).
+        // Draw a dark halo under the white core; mirrors how hover labels solve the same
+        // problem with text-shadow in bar.css.
+        ctx.fillStyle = 'rgba(118, 118, 118, 0.1)';
+        for (const f of state.ticks) {
+          if (horizontal) ctx.fillRect(f * w - 1, 0, 2, h);
+          else ctx.fillRect(0, f * h - 1, w, 2);
+        }
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
         for (const f of state.ticks) {
           if (horizontal) ctx.fillRect(f * w - 0.5, 0, 1, h);
           else ctx.fillRect(0, f * h - 0.5, w, 1);
@@ -92,11 +101,14 @@
         if (state.events && state.events.length) renderEventLabels(state.events, horizontal, w, h);
       }
     } else if (expanded) {
-      // Outside the interval (track only): label what this strip is.
+      // Outside the interval (track only): label what this strip is, and — when known —
+      // when the next interval starts (D-4), so an empty hover isn't a dead end.
       if (horizontal) {
         addLabel(strings.outside, { right: '6px', top: '50%', transform: 'translateY(-50%)' }).classList.add('hint');
+        if (strings.next) addLabel(strings.next, { left: '6px', top: '50%', transform: 'translateY(-50%)' }).classList.add('hint');
       } else {
         addLabel(strings.outside, { bottom: '4px' }, true).classList.add('hint');
+        if (strings.next) addLabel(strings.next, { top: '4px' }, true).classList.add('hint');
       }
     }
   }

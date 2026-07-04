@@ -40,6 +40,10 @@ export function createCalendarService({ timeSource, getCalendarSettings = () => 
   let events = []; // merged + normalized [{ startMs, endMs, title, provider }]
   let cloudRaw = []; // last cloud (Google / Graph) result, provider-tagged, un-normalized
   let localRaw = []; // last Outlook-local result, provider-tagged, un-normalized
+  // providerId ('google' | 'microsoft') -> most recent error message, or null when healthy.
+  // Surfaced via status() so the settings UI can show "token expired" etc. instead of the
+  // color band just silently going stale.
+  const health = {};
   let cloudTimer = null;
   let localTimer = null;
   const listeners = new Set();
@@ -56,10 +60,12 @@ export function createCalendarService({ timeSource, getCalendarSettings = () => 
   };
 
   // OAuth connection state (no secrets) for the settings UI — both providers always listed.
+  // `error` surfaces the last fetch/refresh failure for a connected account (e.g. an expired
+  // token) so the UI can show a warning instead of silently going stale.
   function status() {
     return Object.keys(PROVIDERS).map((id) => {
       const acct = accounts.find((a) => a.provider === id);
-      return { provider: id, label: PROVIDERS[id].config.label, connected: Boolean(acct), email: acct ? acct.email : '' };
+      return { provider: id, label: PROVIDERS[id].config.label, connected: Boolean(acct), email: acct ? acct.email : '', error: acct ? (health[id] || '') : '' };
     });
   }
 
@@ -75,29 +81,46 @@ export function createCalendarService({ timeSource, getCalendarSettings = () => 
     return acct._accessToken;
   }
 
+  // Returns true when the source is healthy enough to trust its result (nothing to do, or at
+  // least one calendar fetched OK); false means "treat this pass as a failure" so the caller
+  // can keep the previous cache instead of blanking the color band. Also updates health[] so
+  // the settings UI can surface *why* (token refresh failure, or every calendar erroring out).
   async function fetchCloud(providerId, provider, group, start, end, out) {
     const acct = accounts.find((a) => a.provider === providerId);
-    if (!acct) return;
+    if (!acct) return true; // not connected: nothing attempted, so nothing failed
     let token;
     try {
       token = await accessTokenFor(acct, provider);
     } catch (e) {
+      health[providerId] = e.message;
       log?.warn('calendar token refresh failed', { provider: providerId, error: e && e.message });
-      return;
+      return false;
     }
+    health[providerId] = null; // token is fine; per-calendar failures below may still set it
     const ids = selections[providerId];
     // No selection → the provider's default calendar (undefined lets fetchEvents use its default).
     const targets = ids && ids.length ? ids : [undefined];
     // Per-calendar try/catch: one missing/forbidden calendar must not drop the others.
+    let failures = 0;
+    let lastError = null;
     for (const calId of targets) {
       try {
         const evs = await provider.fetchEvents(token, start, end, calId);
         for (const e of evs) out.push({ ...e, provider: group });
       } catch (e) {
         if (e && e.code === 401) acct._accessToken = null; // force re-auth next cycle
+        failures += 1;
+        lastError = e && e.message;
         log?.warn('calendar cloud fetch failed', { provider: providerId, calendar: calId, status: e && e.code, error: e && e.message });
       }
     }
+    // Every targeted calendar failed (e.g. offline, revoked grant): the whole pass is bad.
+    // A partial failure (some calendars OK) still counts as a healthy pass overall.
+    if (targets.length > 0 && failures === targets.length) {
+      health[providerId] = lastError;
+      return false;
+    }
+    return true;
   }
 
   // Cloud sources (Google, and Microsoft Graph when Outlook uses 'cloud'): fast cadence.
@@ -111,8 +134,14 @@ export function createCalendarService({ timeSource, getCalendarSettings = () => 
     const all = [];
     // Each source is independent: one failing (offline, token expired) must not drop the others,
     // so per-provider failures are swallowed inside fetchCloud and the rest of this pass survives.
-    if (g.enabled) await fetchCloud('google', google, 'google', start, end, all);
-    if (o.enabled && o.method === 'cloud') await fetchCloud('microsoft', microsoft, 'outlook', start, end, all);
+    const googleOk = g.enabled ? await fetchCloud('google', google, 'google', start, end, all) : true;
+    const graphOk = (o.enabled && o.method === 'cloud') ? await fetchCloud('microsoft', microsoft, 'outlook', start, end, all) : true;
+    // Keep-last-good: a source that fails outright (offline, expired token) would otherwise
+    // blank its color band for a full refresh cycle. Re-seed this pass with its previous
+    // events instead, so a transient hiccup doesn't flicker the bar. A *disabled* source never
+    // attempted a fetch (ok=true above), so it is correctly cleared here as before.
+    if (!googleOk) all.push(...cloudRaw.filter((e) => e.provider === 'google'));
+    if (!graphOk) all.push(...cloudRaw.filter((e) => e.provider === 'outlook'));
     cloudRaw = all;
     log?.debug('calendar cloud refreshed', { count: all.length, google: Boolean(g.enabled), graph: Boolean(o.enabled && o.method === 'cloud') });
     recombine();
@@ -129,7 +158,9 @@ export function createCalendarService({ timeSource, getCalendarSettings = () => 
         const evs = await fetchOutlookLocalEvents(now - WINDOW_BACK_MS, now + WINDOW_AHEAD_MS, specs);
         for (const e of evs) all.push({ ...e, provider: 'outlook' });
       } catch (e) {
-        // not Windows / classic Outlook unavailable / COM error — skip, keep cloud sources
+        // not Windows / classic Outlook unavailable / COM error — likely transient (e.g. Outlook
+        // briefly busy), so keep last-good local events instead of blanking the band for 5min.
+        all.push(...localRaw);
         log?.warn('outlook local fetch failed', { error: e && e.message });
       }
     }
@@ -154,6 +185,7 @@ export function createCalendarService({ timeSource, getCalendarSettings = () => 
     const email = await provider.fetchEmail(token.access_token).catch(() => '');
     accounts = accounts.filter((a) => a.provider !== providerId);
     accounts.push({ provider: providerId, email, refreshToken: token.refresh_token, connectedAt: Date.now() });
+    health[providerId] = null; // fresh connection: clear any stale error from a previous account
     persist();
     await refreshCloud(); // a freshly connected account is a cloud (OAuth) source
     notify();
@@ -163,6 +195,7 @@ export function createCalendarService({ timeSource, getCalendarSettings = () => 
   function disconnect(providerId) {
     accounts = accounts.filter((a) => a.provider !== providerId);
     if (selections[providerId]) { selections = { ...selections }; delete selections[providerId]; } // ids are account-scoped
+    delete health[providerId]; // no account → no error to report
     persist();
     refreshCloud().catch(() => {}); // recompute cloud from the remaining accounts (or clear)
     notify();
@@ -200,7 +233,7 @@ export function createCalendarService({ timeSource, getCalendarSettings = () => 
     listCalendars,
     setCalendarSelection,
     refresh: () => refreshAll(), // settings change / sleep-resume: re-fetch both cadences now
-    eventsAround: () => events, // already normalized + provider-tagged; the bar clips to the interval
+    getEvents: () => events, // already normalized + provider-tagged; the bar clips to the interval
     encryptionAvailable,
     onChange: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
     start() {

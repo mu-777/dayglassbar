@@ -31,5 +31,10 @@ export function createAppTray({ onOpenSettings, onQuit, getSummary, getLabels })
 
   rebuild();
   tray.on('double-click', onOpenSettings);
+  // On Windows, a single left-click on the tray icon is otherwise a dead end (only
+  // right-click/double-click did anything) — pop the same context menu so left-click also
+  // works. On macOS the context menu is already assigned via setContextMenu, so the OS
+  // shows it on any click and this handler never fires there; this is effectively Windows-only.
+  tray.on('click', () => tray.popUpContextMenu());
   return { rebuild };
 }

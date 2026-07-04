@@ -2,11 +2,11 @@
   "name": "dayglassbar",
   "productName": "DayGlassBar",
   "version": "0.1.0",
-  "description": "一日の終わりまでの残り時間を、画面の縁の細いバーで可視化するアンビエントなデスクトップアプリ",
+  "description": "Ambient desktop app that shows the time left in your day as a thin bar quietly draining at the edge of your screen. No numbers, no color changes, no alarms.",
   "type": "module",
   "main": "src/main/index.js",
   "author": "mu-777",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "private": true,
   "engines": {
     "node": ">=18"
@@ -16,6 +16,8 @@
     "test": "node --test",
     "icons": "node tools/gen-icons.mjs",
     "capture": "electron tools/capture-bar.mjs",
+    "og": "electron tools/gen-og.mjs",
+    "version": "node tools/stamp-changelog.mjs && git add CHANGELOG.md",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
     "dist:mac": "electron-builder --mac"
@@ -33,7 +35,7 @@
     },
     "files": [
       "src/**/*",
-      "assets/**/*",
+      "assets/*.png",
       "package.json"
     ],
     "win": {
@@ -52,7 +54,7 @@
     },
     "nsis": {
       "oneClick": true,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": true
     }
   }
 }

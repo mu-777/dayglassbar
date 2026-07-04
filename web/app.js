@@ -8,27 +8,29 @@
 
 const REPO = 'mu-777/dayglassbar';
 const RELEASES_PAGE = `https://github.com/${REPO}/releases`;
+// Single source of truth for the donation link (footer + FAQ).
+const KOFI_URL = 'https://ko-fi.com/mu_777';
 
 /* ---------------- i18n catalog ---------------- */
 const I18N = {
   en: {
-    'meta.description': "DayGlassBar is an ambient desktop app that shows the time left in your day as a thin draining bar at the edge of your screen. No numbers, no color changes, no alarms. Windows & macOS, free.",
+    'meta.description': "DayGlassBar is an ambient desktop app that shows the time left in your day as a thin bar that quietly drains at the edge of your screen. No numbers, no color changes, no alarms. Windows & macOS, free.",
     'nav.features': 'Features',
     'nav.how': 'How it works',
     'nav.download': 'Download',
     'nav.faq': 'FAQ',
     'hero.badge': 'Free · Windows &amp; macOS',
-    'hero.tagline': 'See your day drain away — quietly.',
+    'hero.tagline': 'See your day drain — quietly.',
     'hero.sub': "An ambient bar that lives at the edge of your screen and shows the time left in your day. No numbers, no colors changing, no alarms — just a thin sliver of light that shrinks as the day goes by.",
     'hero.cta': 'Download',
     'hero.github': 'View on GitHub',
     'hero.version': 'Latest release',
-    'hero.principle': 'A nudge, not a nag',
+    'hero.principle': 'Early days — expect a few rough edges.',
     'hero.caption': 'Live demo: the fill is the time left in your day — hover expands it.',
     'how.title': 'How it works',
     'how.1.h': 'Set your day',
     'how.1.p': 'Pick the segment (e.g. 9:00–17:00) and which days are on. Breaks like lunch are greyed out.',
-    'how.2.h': 'Watch it drain',
+    'how.2.h': 'Catch it at a glance',
     'how.2.p': "A thin bar sits on your screen's edge and fills only the time remaining. As the day passes, the fill shrinks — that's it.",
     'how.3.h': 'Hover for detail',
     'how.3.p': "Rest the cursor on the bar and it widens to show start, end, now and time left — then slips back. It's always click-through, so it never steals your clicks.",
@@ -50,7 +52,7 @@ const I18N = {
     'download.unsigned.p': 'On Windows, the SmartScreen prompt may appear — click <em>More info → Run anyway</em>. On macOS, right-click the app → <em>Open</em> (or run <code>xattr -dr com.apple.quarantine</code> on it).',
     'download.all': 'All releases &amp; release notes →',
     'faq.title': 'FAQ',
-    'faq.q1': 'Does it turn red or blink as time runs out?',
+    'faq.q1': 'Does it turn red or blink as the day winds down?',
     'faq.a1': 'No. "Rush" cues are intentionally left out — only the fill length shrinks, and the color stays constant. The whole point is a nudge, not a nag.',
     'faq.q2': 'Is it a Pomodoro timer? Does it notify me?',
     'faq.a2': "No. Pomodoro, sounds and notifications are out of scope. It's a display-only tool for feeling how much of your day is left.",
@@ -62,9 +64,9 @@ const I18N = {
     'faq.a5': "No. It was implemented once and removed: ICS feeds are cached by the provider for hours, so they can't follow mid-day changes fast enough.",
     'faq.q6': 'Is it free? What about my data?',
     'faq.a6': 'It’s free to download. Your settings live in a local JSON; calendar sign-in tokens are encrypted on your device and never included in exports. Events are only fetched for display — nothing is sent to a cloud of ours.',
+    'faq.support': 'If you find it useful, a small tip on Ko-fi is hugely appreciated — but it’s completely optional. ♡',
     'footer.tag': 'A nudge, not a nag.',
-    'footer.releases': 'Releases',
-    'footer.top': 'Back to top',
+    'footer.support': 'Support me on Ko-fi',
     // dynamic
     'dyn.os.win': 'for Windows',
     'dyn.os.mac': 'for macOS',
@@ -74,21 +76,21 @@ const I18N = {
   ja: {
     'meta.description': 'DayGlassBar は、一日の残り時間を画面の縁の細いバーで可視化するアンビエントなデスクトップアプリです。数字も色の変化もアラームもなし。Windows / macOS 対応・無料。',
     'nav.features': '特長',
-    'nav.how': '仕組み',
+    'nav.how': '使い方',
     'nav.download': 'ダウンロード',
     'nav.faq': 'FAQ',
     'hero.badge': '無料 · Windows / macOS',
     'hero.tagline': '一日の残りを、静かに視界の端で。',
-    'hero.sub': '画面の縁に常駐し、一日の残り時間を細いバーで可視化するアンビエントなデスクトップアプリ。数字も、色の変化も、アラームもありません。日が進むにつれて静かに縮む、光の筋だけ。',
+    'hero.sub': '画面の縁に常駐し、一日の残り時間を細いバーで可視化するアンビエントなデスクトップアプリ。数字も、色の変化も、アラームもありません。日が進むにつれて静かに減る、光の筋。',
     'hero.cta': 'ダウンロード',
     'hero.github': 'GitHub を見る',
     'hero.version': '最新リリース',
-    'hero.principle': 'そっと気づかせる、急かさない',
+    'hero.principle': '開発中のため、多少の粗さがあります。',
     'hero.caption': '動作デモ: 塗り＝一日の残り時間。ホバーで拡大します。',
-    'how.title': '仕組み',
+    'how.title': '使い方',
     'how.1.h': '一日を決める',
     'how.1.p': '区間（例: 9:00〜17:00）と有効な曜日を設定します。昼休みなどの休憩はグレーで表示されます。',
-    'how.2.h': '減るのを眺める',
+    'how.2.h': 'ひと目でわかる',
     'how.2.p': '画面の縁の細いバーが残り時間ぶんだけ塗られ、時間が経つと塗りが縮みます。それだけです。',
     'how.3.h': 'ホバーで詳細',
     'how.3.p': 'カーソルを留めるとバーが広がり、開始・終了・現在時刻と残り時間を表示。離すと細いバーに戻ります。常にクリックスルーなので、操作を奪いません。',
@@ -122,9 +124,9 @@ const I18N = {
     'faq.a5': 'いいえ。一度実装しましたが外しました。ICS フィードは提供側で数時間キャッシュされ、日中の予定変更に十分速く追従できないためです。',
     'faq.q6': '無料ですか？データはどう扱われますか？',
     'faq.a6': '無料でダウンロードできます。設定はローカルの JSON に保存され、カレンダーのサインイン情報は端末内で暗号化され、エクスポートには一切含まれません。予定は表示のために取得するだけで、当方のクラウドには何も送りません。',
+    'faq.support': '気に入っていただけたら、Ko-fi での少額の支援をいただけると嬉しいです（任意です）。 ♡',
     'footer.tag': 'そっと気づかせる、急かさない。',
-    'footer.releases': 'リリース',
-    'footer.top': 'ページ上部へ',
+    'footer.support': 'Ko-fi で支援する',
     // dynamic
     'dyn.os.win': 'Windows 用',
     'dyn.os.mac': 'macOS 用',
@@ -215,8 +217,13 @@ function setHref(id, url) {
 
 async function loadRelease() {
   try {
+    // Cap the request so a wedged connection can't leave the version/labels in limbo;
+    // browsers without AbortSignal.timeout (pre-2022) just skip the cap.
+    const timeoutSignal = typeof AbortSignal !== 'undefined' && typeof AbortSignal.timeout === 'function'
+      ? AbortSignal.timeout(10000) : undefined;
     const res = await fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: { Accept: 'application/vnd.github+json' },
+      signal: timeoutSignal,
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const data = await res.json();
@@ -266,6 +273,9 @@ function init() {
 
   const yr = document.getElementById('year');
   if (yr) yr.textContent = String(new Date().getFullYear());
+
+  // Donation links (footer + FAQ) all point at the one Ko-fi URL.
+  ['footerSupport', 'faqSupport'].forEach((id) => setHref(id, KOFI_URL));
 
   loadRelease();
 }

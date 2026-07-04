@@ -34,13 +34,14 @@
 - **不採用**: 埋め込みブラウザ（BrowserWindow に認可ページを読み込む）: RFC 8252 が非推奨。資格情報をアプリが覗ける構造になり各社も警告。
 - **逆戻りガード**: **Microsoft に secret を足さない**（パブリッククライアントに不要）。**Google の client_secret は「秘密」ではないが必須なので外さない**（外すと token endpoint 400 が再発）。埋め込みブラウザに戻さない。
 - **同梱の安全性（決定・2026-06）**: Google の client_secret は**配布物から抽出可能**（Electron は asar 展開や `strings` で読める）。それでも**同梱を採用**。根拠は安全性が secret の秘匿に依存しないこと＝**PKCE＋ユーザー同意＋登録リダイレクト**で守られ、secret 単体では誰のデータにもアクセスできない（[RFC 8252](https://datatracker.ietf.org/doc/html/rfc8252)・Google も非機密と明言）。残リスクは**自分の Google プロジェクトのなりすまし／クォータ消費**のみ（データ漏洩ではない）。
-  - **運用の守り**: Google OAuth アプリを**「テスト」公開ステータス**のままにし、**テストユーザーに自分（＋必要な人）だけ登録**＝そのリスト以外は同意フローを完了できない。スコープは読み取り専用最小（`calendar.events.readonly`＋一覧取得用の `calendar.calendarlist.readonly`・決定9）。必要時は secret をローテーション。
+  - **運用の守り**: Google OAuth アプリを**「テスト」公開ステータス**のままにし、**テストユーザーに自分（＋必要な人）だけ登録**＝そのリスト以外は同意フローを完了できない。スコープは読み取り専用最小（`calendar.events.readonly`＋一覧取得用の `calendar.calendarlist.readonly`・決定9）。必要時は secret をローテーション。**「テスト」ステータスの refresh token は 7 日で失効する**ため、テストユーザー自身も定期的な再接続が要る。一般配布に向けた公開ステータス化の手順・7日失効の詳細は `docs/google-oauth-publishing.md`。
   - **逆戻りガード（公開配布する場合）**: 不特定多数に配るなら**同梱をやめ「利用者が自分の client_id/secret を設定UIで入力」方式へ切替**（アプリに資格情報を載せない）。個人利用の間は同梱で可。バックエンド・プロキシ案は「ローカル完結・クラウドなし」方針に反するため不採用。
 
 ## 決定3: ベンダー SDK を使わず Node 標準で自前実装（依存ゼロ）
 - **採用**: `crypto`(PKCE) / `http`(ループバック受け) / `fetch`(トークン交換・取得) のみ。両プロバイダで**同一の汎用フロー1本**（`src/main/calendar/oauth.js` ＋ `oauth-url.js`）を共有し、`google.js`/`microsoft.js` はエンドポイント・スコープ・JSON マッピングだけを持つ。
 - **不採用**: `googleapis` ＋ `@azure/msal-node`。堅牢だが依存とバンドルが大きく、プロバイダごとに別コードになる（プロジェクトの依存ゼロ志向＝`npm run icons` も依存ゼロ、に反する）。標準 OAuth2 は薄く、自前で十分制御できる。
 - **逆戻りガード**: 機能追加のたびに重い SDK を引き込まない。プロバイダ差分は `mapEvents`/設定値に閉じ込める。
+- **タイムアウト**: fetch は全箇所に `AbortSignal.timeout` を付ける — トークン交換 30 秒（`oauth.js`）・API GET 10 秒（`google.js`/`microsoft.js`）。ハングした 1 接続が接続フロー（ユーザーが待つ）や更新タイマを固めない。更新確認ボタン（main）とランディングページ（`web/app.js`）の `releases/latest` も同様に 10 秒。
 
 ## 決定4: 秘匿情報は settings.json と分離（暗号化・エクスポート対象外）
 - リフレッシュトークン＋接続アカウントは `userData/calendar-accounts.enc`（Electron `safeStorage` で暗号化）に保存。**`settings.json` には入れない**＝エクスポートに含まれず、`validateSettings` も触れない。
@@ -51,12 +52,13 @@
 ## 決定5: 取得は毎秒ではなくタイマ（不変条件 #1 と整合）
 - `CalendarService` が**タイマ＋接続/設定変更時＋スリープ復帰時**にだけ取得してキャッシュ。毎秒の bar tick は `getBarState`→`computeEventSegments` でキャッシュを `now` に再クリップするだけ。経過の積算はしない。
 - アクセストークンは期限までメモリ保持。`offline_access`(MS) / `access_type=offline`(Google) でリフレッシュ。Microsoft のリフレッシュトークン・ローテーションに追従。オーバーレイ無効/未接続なら取得しない。
-- **タイマは cloud と local で分離**: `REFRESH_CLOUD_MS=1分`（Google/Graph＝安い HTTPS GET なのでプロバイダ側編集に速く追従）／`REFRESH_LOCAL_MS=5分`（Outlook local＝毎回 PowerShell+COM プロセス起動なので低頻度）。最後の結果（`cloudRaw`/`localRaw`）を `normalizeEvents` でマージして1キャッシュにする。**逆戻りガード**: 単一タイマに戻さない（local の PowerShell 起動が cloud と同頻度になり重い）。Google クォータは1分間隔（≒1,440回/日・ユーザー）で十分余裕、アクセストークンはキャッシュするので毎分のリフレッシュは発生しない。
+- **タイマは cloud と local で分離**: `REFRESH_CLOUD_MS=1分`（Google/Graph＝安い HTTPS GET なのでプロバイダ側編集に速く追従）／`REFRESH_LOCAL_MS=5分`（Outlook local＝毎回 PowerShell+COM プロセス起動なので低頻度）。最後の結果（`cloudRaw`/`localRaw`）を `normalizeEvents` でマージして1キャッシュにする。**逆戻りガード**: 単一タイマに戻さない（local の PowerShell 起動が cloud と同頻度になり重い）。Google クォータは1分間隔で十分余裕、アクセストークンはキャッシュするので毎分のリフレッシュは発生しない（数値・push 非採用の詳細は決定10）。
 - **スリープ復帰時の即時取得**: `powerMonitor` の `resume`→`calendar.refresh()`（cloud+local）。スリープ中はタイマが止まり予定が古くなるため、次の間隔を待たず復帰直後に最新化する。
 
 ## 決定6: 何を「予定」とみなすか（spec §10 の決定化）
 - read-only スコープ（Google `calendar.events.readonly`＋`calendar.calendarlist.readonly`（一覧取得用・決定9）/ Graph `Calendars.Read`＝一覧取得も同スコープでカバー）。
 - **除外**: 終日予定 / 辞退済み（responseStatus=declined）/ 「空き」表示（Google transparency=transparent・Graph showAs=free）。
+- **取得窓との突き合わせは重なり判定**（「開始が窓内」ではない）: Google は `timeMin`（終了時刻の下限）、Graph は `calendarView`、Outlook local は Restrict `[Start] <= 窓末尾 AND [End] >= 窓先頭`。開始からどれだけ経った進行中の予定でも、残り側の帯が消えない（3 ソースで同じ意味論。当初 local だけ `[Start] >=` で始点判定しており、1 時間超経過した進行中の予定が消えるバグがあった＝逆戻りガード）。
 - タイムゾーンは取得時に UTC 正規化（Graph は `Prefer: outlook.timezone="UTC"`、無ゾーン文字列に `Z` 補完）。判定・正規化は core `normalizeEvents`（純粋・テスト対象）、JSON→共通形式は各プロバイダ `mapEvents`（純粋・テスト対象）。
 - 取得カレンダーはユーザーが選択可（決定9）。未選択時のみ primary/既定 1 本にフォールバック。
 
@@ -73,6 +75,14 @@
 - **空選択のセマンティクス**: 選択リストが**空＝primary/既定 1 本のみ**（旧挙動と後方互換）。UI は空のとき primary を既定チェック（実挙動と一致）。非空ならその ID 群を取得。「何も表示しない」はプロバイダ自体の表示トグル OFF で行う（空選択を「ゼロ表示」に割り当てない）。
 - **Outlook cloud（Graph）も実装済みだが UI 未到達**: 決定0b で cloud は接続 UI 無効のため、その選択ピッカーも出さない（接続できないと一覧も引けない）。コードパスは Google/local と同形で用意済み＝cloud 再開時はそのまま使える。
 - **逆戻りガード**: 選択 ID を `settings.json` に移さない（export でメール/カレンダー構成が漏れる）。disconnect 時はそのソースの選択も破棄（ID はアカウント固有）。primary 固定へ戻さない（複数カレンダー利用者の予定が落ちる）。
+
+## 決定10: ポーリング頻度は 1 分で妥当・push 通知は採用しない（クォータ検討・逆戻りガード）
+- **結論**: cloud の 1 分ポーリング（決定5）は Google Calendar API の使い方として問題ない。レート制限に対して桁違いの余裕がある。[Google 公式クォータ](https://developers.google.com/workspace/calendar/api/guides/quota)の既定値:
+  - **per-user / 分 / プロジェクト = 600 req**。本アプリの実測は「1 分あたり選択カレンダー数ぶんの `events.list` GET」（未選択なら primary 1 本）＝通常 1〜数 req/分で、数百倍の余裕。
+  - **per-project / 分 = 10,000 req**、**per-project / 日（無料枠）= 1,000,000 req**。
+- **唯一意識すべき制約＝日次 100 万はプロジェクト全体で共有**: OAuth の client_id（＝Google Cloud プロジェクト）は**全ユーザーで 1 つを共有**する。per-user 系は各ユーザー独立だが、**日次 1,000,000 はプロジェクト合算**なのでユーザー数でスケールする。概算（60 秒間隔・カレンダー 1 本）: 24h 稼働で 1,440 req/日/人 → 約 690 人、8h 稼働なら約 480 req/日/人 → 約 2,000 人で無料枠に到達（複数カレンダー選択ならその本数で割る）。**普及フェーズで最初に当たる天井はここ**（超過は課金 or クォータ増申請）。個人〜小規模利用の現状は余裕。無駄打ちはしない設計＝`enabled` かつ接続済みのソースしか GET を投げない（`index.js` `refreshCloud`／`fetchCloud`）。
+- **push 通知（webhook）は採用しない（逆戻りガード）**: Google 公式はポーリングより [push 通知](https://developers.google.com/workspace/calendar/api/guides/push)を推奨するが、これは**受信用の公開 HTTPS エンドポイント**が必要。常駐デスクトップアプリには受け口がなく（＝別途サーバ/プロキシが要る＝「ローカル完結・クラウドなし」方針に反する）、このアーキテクチャでは非現実的。**ポーリング継続が妥当**。将来サーバを持つ判断をしない限り再検討しない。
+- **公式推奨のうち未実装（普及時の改善候補・任意）**: ①**間隔ジッター（±25%）**＝多数ユーザーの同時スパイク回避に公式が推奨。今は固定 60 秒の `setInterval`（`REFRESH_CLOUD_MS` に乱数を足すだけで入る・費用対効果が最も高い）。②**指数バックオフ**＝429/403 rate-limit 時に有効。今は失敗しても前回結果を保持し 60 秒後に再試行するだけ（60 秒固定なので実害は小さいが、rate-limit を踏んだら効く）。現状規模では必須ではないため未実装。導入するならジッターを先に。
 
 ## テスト境界
 - **自動（`npm test`）**: `test/calendar.test.js`（`computeEventSegments`/`normalizeEvents`・`provider` 受け渡し）、`test/calendar-providers.test.js`（PKCE・認可URL生成・Google/MS の `mapEvents`＋`mapCalendars`）、**`test/outlook-local.test.js`（`mapOutlookJson`／`mapOutlookFolders`／`decodeLocalCalendarId`）**、`test/validate.test.js`（`appearance.calendar` 2プロバイダ＋Outlook method 検証）、`test/i18n.test.js`（キー集合一致）。

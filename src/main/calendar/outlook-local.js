@@ -43,10 +43,14 @@ foreach ($store in $ns.Stores) { try { Walk $store.GetRootFolder() 0 } catch {} 
 $script:out | ConvertTo-Json -Compress
 `;
 
-// The Restrict filter needs a bounded window (IncludeRecurrences expands recurring events
-// infinitely otherwise). The "MM/dd/yyyy hh:mm tt" format is Microsoft's documented Restrict
-// format (US-locale; a known limitation on some locales). Times are emitted as round-trip ISO
-// ('o') so Node parses them back to the correct instant regardless of locale. <FOLDER_SPECS>
+// The Restrict filter matches by OVERLAP ([Start] <= windowEnd AND [End] >= windowStart), not
+// by start time: an in-progress meeting that began before the window (e.g. hour two of a long
+// workshop) must keep its remaining band, matching the cloud sources (Google's timeMin bounds
+// the END time; Graph calendarView is overlap-based). The [Start] upper bound also keeps the
+// window finite, which IncludeRecurrences needs (it expands recurring events infinitely
+// otherwise). The "MM/dd/yyyy hh:mm tt" format is Microsoft's documented Restrict format
+// (US-locale; a known limitation on some locales). Times are emitted as round-trip ISO ('o')
+// so Node parses them back to the correct instant regardless of locale. <FOLDER_SPECS>
 // is an array of @{id;store} pairs; empty means "the default calendar folder".
 const FETCH_PS = `
 $ErrorActionPreference = 'Stop'
@@ -54,7 +58,7 @@ $epoch = [datetime]'1970-01-01T00:00:00Z'
 $start = $epoch.AddMilliseconds(<START_MS>).ToLocalTime()
 $end = $epoch.AddMilliseconds(<END_MS>).ToLocalTime()
 $fmt = 'MM/dd/yyyy hh:mm tt'
-$filter = "[Start] >= '" + $start.ToString($fmt) + "' AND [Start] <= '" + $end.ToString($fmt) + "'"
+$filter = "[Start] <= '" + $end.ToString($fmt) + "' AND [End] >= '" + $start.ToString($fmt) + "'"
 $ol = New-Object -ComObject Outlook.Application
 $ns = $ol.GetNamespace('MAPI')
 $specs = @(<FOLDER_SPECS>)

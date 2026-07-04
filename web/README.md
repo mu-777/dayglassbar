@@ -8,7 +8,7 @@
 | `index.html` | ページ本体。英/日対応＝翻訳対象の文字列はすべて `data-i18n="key"` を持つ。 |
 | `styles.css` | アプリアイコン由来のダークテーマ（濃紺＋クールブルー1色）。 |
 | `app.js` | 英/日トグル（catalog 内蔵）・OS 判定・GitHub Releases のライブ取得。 |
-| `assets/` | 画像（現状は `icon.png` のみ）。実スクショや OG カードはここに置く。 |
+| `assets/` | 画像（`icon.png`・`og.png`＝OG カード・`kofi_symbol.svg`）。実スクショもここに置く。 |
 | `.nojekyll` | Jekyll 処理を無効化（無害。将来ブランチ配信へ切替時の保険）。 |
 
 ## 公開のしくみ
@@ -55,8 +55,12 @@ Windows/macOS ボタンとバージョンを自動で埋めます。
 3. **カレンダー色帯** — バー（または拡大状態）に Google と Outlook の予定が
    別色の帯で出た状態。Calendar の機能カード用。
 4. **設定ウィンドウ** — 任意。将来の「設定」セクション用。
-5. **OG/ソーシャルカード** — 1200×630 の PNG（濃紺背景にアイコン＋名前＋
-   タグライン）。`assets/og.png` として保存し、`og:image` メタを指す。
+5. **OG/ソーシャルカード** — **済み**: `assets/og.png`（1200×630・濃紺背景に
+   アイコン＋名前＋タグライン＋右縁のバー）。`index.html` の `og:image` が
+   絶対 URL で参照（クローラは相対 URL を解決しないため）。再生成は
+   `npm run og`（`tools/gen-og.mjs`＝capture-bar と同じ Electron capturePage
+   方式・依存ゼロ）。文言・配色はスクリプト内に直書き。フォントは Inter →
+   LP と同じスタックの順でフォールバック（描画マシンのフォントに依存）。
 
 撮影方法: Windows/macOS でアプリを起動し、`DAYGLASSBAR_FAKE_NOW` で区間内の
 時刻にしてから OS のスクショ機能で撮ります。（リポジトリの

@@ -1,0 +1,1 @@
+kofi_symbol.svg is from https://more.ko-fi.com/brand-assets under https://help.ko-fi.com/hc/en-us/articles/360007937553-Ko-fi-Content-Guidelines

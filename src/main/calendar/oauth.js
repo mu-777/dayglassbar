@@ -7,6 +7,11 @@ import { shell } from 'electron';
 import { createVerifier, challengeFromVerifier, randomToken } from './pkce.js';
 import { buildAuthUrl, tokenRequestBody, refreshRequestBody } from './oauth-url.js';
 
+// A wedged token endpoint would otherwise stall an interactive connect (user waiting in the
+// settings window) or a background refresh forever. Generous — token exchanges normally
+// finish in a second or two.
+const TOKEN_TIMEOUT_MS = 30000;
+
 // Run the full flow and return the token response { access_token, refresh_token, ... }.
 export async function authorize(config) {
   if (!config.clientId) throw new Error(`${config.label}: client_id not configured`);
@@ -30,6 +35,7 @@ async function exchange(tokenUrl, body) {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body,
+    signal: AbortSignal.timeout(TOKEN_TIMEOUT_MS),
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {

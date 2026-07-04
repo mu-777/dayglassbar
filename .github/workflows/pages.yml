@@ -6,8 +6,8 @@ name: pages
 # runtime by web/app.js from the GitHub Releases API, so this workflow does
 # NOT need to run on each release — only when web/ itself changes.
 #
-# One-time setup: repo Settings → Pages → Build and deployment → Source =
-# "GitHub Actions". Site URL: https://mu-777.github.io/dayglassbar/
+# Pages is auto-enabled by configure-pages (enablement: true) on first run, so
+# no manual repo setup is needed. Site URL: https://mu-777.github.io/dayglassbar/
 
 on:
   push:
@@ -36,6 +36,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+        with:
+          # Auto-enable Pages (Source = GitHub Actions) via the API if it
+          # isn't yet, so the first run doesn't fail with "Get Pages site
+          # failed / Not Found". Needs the workflow's `pages: write` perm.
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: web

@@ -10,6 +10,8 @@
   // main opens this window with ?firstRun=1 on the very first launch (see main/index.js):
   // show the one-time "settings live in the tray" guide.
   const FIRST_RUN = new URLSearchParams(location.search).get('firstRun') === '1';
+  // Donation link target (single source of truth).
+  const KOFI_URL = 'https://ko-fi.com/mu_777';
 
   // ---- i18n (catalog shipped from main) ----
   let MESSAGES = {};
@@ -19,6 +21,20 @@
   let LANG = 'en';
   let displays = [];
   let calendarState = { accounts: [], encryptionAvailable: true };
+  let appVersion = '';
+  // D-7: unsaved-changes indicator — a small dot prefixed to the window title. Cleared on
+  // load()/save/import/reset success; set on any form edit (see the delegated listeners
+  // near the bottom of this file).
+  let dirty = false;
+
+  function setDirty(v) {
+    dirty = Boolean(v);
+    updateTitle();
+  }
+
+  function updateTitle() {
+    document.title = (dirty ? '● ' : '') + t('settings.windowTitle');
+  }
 
   function t(key, params) {
     const table = MESSAGES[LANG] || MESSAGES[DEFAULT_LANG] || {};
@@ -33,11 +49,19 @@
   // and on every live language switch.
   function applyStaticI18n() {
     document.documentElement.lang = LANG;
-    document.title = t('settings.windowTitle');
+    updateTitle();
     for (const el of document.querySelectorAll('[data-i18n]')) el.textContent = t(el.dataset.i18n);
     for (const el of document.querySelectorAll('[data-i18n-html]')) el.innerHTML = t(el.dataset.i18nHtml);
     for (const el of document.querySelectorAll('[data-i18n-ph]')) el.placeholder = t(el.dataset.i18nPh);
     for (const el of document.querySelectorAll('[data-i18n-title]')) el.title = t(el.dataset.i18nTitle);
+    // Version carries a param (the number isn't translatable), so it's set here rather
+    // than via a plain data-i18n attribute — and re-localized on every language switch.
+    const ver = $('#app-version-text');
+    if (ver) ver.textContent = appVersion ? t('app.version', { version: appVersion }) : '';
+    // Any previous "check for updates" result is stale after a re-render (new language,
+    // reload, …) — clear it rather than leave a translated-in-the-old-language leftover.
+    const ur = $('#update-result');
+    if (ur) ur.textContent = '';
   }
 
   function esc(v) {
@@ -57,7 +81,7 @@
       `<span class="tilde">${esc(t('sep.range'))}</span>` +
       `<input class="b-end time" value="${esc(b.end)}" placeholder="13:00" />` +
       `<button type="button" class="remove ghost" title="${esc(t('title.removeBreak'))}">×</button>`;
-    row.querySelector('.remove').addEventListener('click', () => row.remove());
+    row.querySelector('.remove').addEventListener('click', () => { row.remove(); setDirty(true); });
     return row;
   }
 
@@ -79,7 +103,7 @@
     el.querySelector('.d-enabled').addEventListener('change', (e) => {
       when.hidden = !e.target.checked;
     });
-    el.querySelector('.add-break').addEventListener('click', () => breaks.appendChild(breakRow()));
+    el.querySelector('.add-break').addEventListener('click', () => { breaks.appendChild(breakRow()); setDirty(true); });
     el.readValue = () => {
       if (!el.querySelector('.d-enabled').checked) return { enabled: false };
       return {
@@ -96,6 +120,8 @@
   }
 
   // ---- weekly ----
+  const WEEKDAYS_ONLY = ['mon', 'tue', 'wed', 'thu', 'fri'];
+
   function buildWeekly(weekly) {
     const root = $('#weekly');
     root.textContent = '';
@@ -107,9 +133,43 @@
       name.textContent = t(`weekday.short.${key}`);
       const editor = dayEditor(weekly[key]);
       weeklyEditors[key] = editor;
-      row.append(name, editor);
+      row.append(name, editor, buildCopyActions(key));
       root.appendChild(row);
     }
+  }
+
+  // Two small "copy this day's schedule elsewhere" buttons (D-2) — a quick way to set up
+  // a typical Mon–Fri week, or apply one day's edits to every day, without retyping.
+  function buildCopyActions(sourceKey) {
+    const wrap = document.createElement('span');
+    wrap.className = 'copy-actions';
+    const toWeekdays = document.createElement('button');
+    toWeekdays.type = 'button';
+    toWeekdays.className = 'ghost';
+    toWeekdays.textContent = t('btn.copyToWeekdays');
+    toWeekdays.title = t('title.copyToWeekdays');
+    toWeekdays.addEventListener('click', () =>
+      copyDayTo(sourceKey, WEEKDAYS_ONLY.filter((k) => k !== sourceKey)));
+    const toAll = document.createElement('button');
+    toAll.type = 'button';
+    toAll.className = 'ghost';
+    toAll.textContent = t('btn.copyToAll');
+    toAll.title = t('title.copyToAll');
+    toAll.addEventListener('click', () => copyDayTo(sourceKey, WEEK.filter((k) => k !== sourceKey)));
+    wrap.append(toWeekdays, toAll);
+    return wrap;
+  }
+
+  // Apply sourceKey's current (possibly unsaved) values to each target day by rebuilding
+  // their editors from scratch — the same construction dayEditor() normally goes through.
+  function copyDayTo(sourceKey, targetKeys) {
+    const rec = weeklyEditors[sourceKey].readValue();
+    for (const k of targetKeys) {
+      const newEd = dayEditor(rec);
+      weeklyEditors[k].replaceWith(newEd);
+      weeklyEditors[k] = newEd;
+    }
+    setDirty(true);
   }
 
   // ---- overrides ----
@@ -129,7 +189,7 @@
     del.className = 'ghost remove';
     del.title = t('title.removeOverride');
     del.textContent = '×';
-    del.addEventListener('click', () => row.remove());
+    del.addEventListener('click', () => { row.remove(); setDirty(true); });
     row.append(name, editor, del);
     // keep rows sorted by date
     const after = [...root.querySelectorAll('.override-row')].find((r) => r.dataset.date > dateKey);
@@ -261,6 +321,15 @@
       btn.disabled = disabled;
     }
     container.append(status, btn);
+    // Surface a connected-but-unhealthy account (e.g. a token refresh that has started
+    // failing) instead of letting the color band silently go stale — see calendar/index.js
+    // `health`. Not shown for a never-connected account (nothing to warn about yet).
+    if (acct.connected && acct.error) {
+      const warn = document.createElement('p');
+      warn.className = 'note warn';
+      warn.textContent = t('calendar.connectError', { error: acct.error });
+      container.append(warn);
+    }
   }
 
   // Render both providers' connection UI from calendarState + the chosen Outlook method, plus
@@ -405,6 +474,7 @@
   function render(settings) {
     applyStaticI18n();
     $('#onboarding-hint').hidden = !FIRST_RUN; // keep it visible across live language switches
+    $('#onboarding-autolaunch').hidden = !FIRST_RUN; // auto-launch disclosure, first run only
     buildLanguageSelect();
 
     const ap = settings.appearance;
@@ -441,11 +511,12 @@
   }
 
   async function load() {
-    const [settings, disp, i18n, cal] = await Promise.all([
+    const [settings, disp, i18n, cal, version] = await Promise.all([
       window.api.getSettings(),
       window.api.listDisplays(),
       window.api.getI18n(),
       window.api.calendarStatus(),
+      window.api.getAppVersion(),
     ]);
     MESSAGES = i18n.messages;
     LANGUAGES = i18n.languages;
@@ -454,7 +525,30 @@
     LANG = LANGUAGES.includes(settings.language) ? settings.language : DEFAULT_LANG;
     displays = disp;
     calendarState = cal;
+    appVersion = version;
     render(settings);
+    setDirty(false); // a freshly loaded/reloaded form has nothing unsaved yet
+  }
+
+  // Donation link: show the URL on hover, but open it in the system browser (not a new
+  // Electron window) on click. Click-through bar never does this — settings only.
+  const supportLink = $('#support-link');
+  if (supportLink) {
+    supportLink.setAttribute('href', KOFI_URL);
+    supportLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.api.openExternal(KOFI_URL);
+    });
+  }
+
+  // D-7: mark the form dirty on any input/change under <main>, except the calendar picker
+  // (.cal-list) — those checkboxes persist immediately via their own IPC call and are never
+  // part of the Save button's payload, so they shouldn't imply "you have unsaved changes".
+  for (const evt of ['input', 'change']) {
+    $('main').addEventListener(evt, (e) => {
+      if (e.target.closest('.cal-list')) return;
+      setDirty(true);
+    });
   }
 
   $('#f-opacity').addEventListener('input', syncRangeLabels);
@@ -471,6 +565,7 @@
     const v = $('#override-date').value;
     if (!v) return;
     addOverrideRow(v, { enabled: true, start: '9:00', end: '17:00', breaks: [] });
+    setDirty(true);
   });
 
   // Switching the Outlook method live-updates the hint and shows/hides the sign-in control.
@@ -480,8 +575,11 @@
 
   $('#save').addEventListener('click', async () => {
     const result = await window.api.saveSettings(collect());
-    showErrors(result.errors);
+    // Validation failures come back as result.errors; a disk write failure (validation
+    // passed but store.save() threw) instead comes back as a single result.error string.
+    showErrors(result.errors && result.errors.length ? result.errors : result.error ? [{ message: result.error }] : []);
     setStatus(result.ok ? t('status.saved') : t('status.saveFailed'));
+    if (result.ok) setDirty(false);
   });
 
   $('#export').addEventListener('click', async () => {
@@ -498,6 +596,32 @@
     setStatus(result.ok ? t('status.diagnosticsSaved') : t('status.diagnosticsFailed', { error: result.error ?? t('error.unknown') }));
   });
 
+  // Manual "check for updates" (F-3): one GitHub API call on click, result shown as plain
+  // text or a link — no auto-check, no badge/notification (invariant #4: promote, don't rush).
+  $('#check-updates').addEventListener('click', async () => {
+    const btn = $('#check-updates');
+    const resultEl = $('#update-result');
+    btn.disabled = true;
+    resultEl.textContent = t('updates.checking');
+    const result = await window.api.checkUpdates();
+    resultEl.textContent = '';
+    if (result.ok && result.hasUpdate) {
+      const a = document.createElement('a');
+      a.href = result.url;
+      a.textContent = t('updates.available', { version: result.latest });
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.api.openExternal(result.url);
+      });
+      resultEl.appendChild(a);
+    } else if (result.ok) {
+      resultEl.textContent = t('updates.upToDate');
+    } else {
+      resultEl.textContent = t('updates.failed', { error: result.error ?? t('error.unknown') });
+    }
+    btn.disabled = false;
+  });
+
   $('#import').addEventListener('click', async () => {
     const result = await window.api.importSettings();
     if (result.canceled) return;
@@ -505,9 +629,25 @@
       showErrors([]);
       await load(); // reflect the imported (now persisted) settings + language in the form
       setStatus(t('status.imported'));
+      setDirty(false);
     } else {
       showErrors(result.errors ?? [{ message: result.error ?? t('error.importGeneric') }]);
       setStatus(t('status.importFailed'));
+    }
+  });
+
+  // Reset settings.json to defaults (D-1). Confirm first — this discards the whole schedule
+  // and appearance config (calendar connections are untouched, see settings:reset in main).
+  $('#reset').addEventListener('click', async () => {
+    if (!window.confirm(t('confirm.reset'))) return;
+    const result = await window.api.resetSettings();
+    if (result.ok) {
+      showErrors([]);
+      await load(); // reflect the now-default settings in the form
+      setStatus(t('status.reset'));
+      setDirty(false);
+    } else {
+      showErrors([{ message: result.error }]);
     }
   });
 
