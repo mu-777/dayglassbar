@@ -22,7 +22,7 @@ GitHub Releases（`v*` タグ → `.github/workflows/build.yml` が `.exe`/`.dmg
   1. **本家 homebrew/homebrew-cask**: 新規カスクには知名度基準（GitHub の stars/forks/watchers の目安）があり、無名のうちは弾かれることがある。要件を満たしてから。
   2. **自前 tap（すぐ可能・まずはこちら）**: `mu-777/homebrew-tap` リポジトリを作り `Casks/dayglassbar.rb` を置くだけ。ユーザーは `brew tap mu-777/tap && brew install --cask dayglassbar`。要件・審査なし。
 - cask 定義は `version`・`sha256`・`url`（Release の dmg）・`app "DayGlassBar.app"` の数行。リリースごとの version/sha256 更新も Actions で自動化できる。
-- 注意: 未署名のため cask で入れても Gatekeeper の隔離属性は付く（ユーザーは `--no-quarantine` か README の `xattr` 手順が必要）。**署名＋公証（notarization）を先に済ませるとこの注意ごと消える**ので、理想の着手順は「署名 → cask」。
+- 注意: 未署名のため cask で入れても Gatekeeper の隔離属性は付く（ユーザーは `--no-quarantine` か README の `xattr` 手順が必要）。**署名＋公証（notarization）を先に済ませるとこの注意ごと消える**ので、理想の着手順は「署名 → cask」。署名・公証の決定記録と導入手順は [`macos-signing.md`](macos-signing.md)。
 - 対象は Apple Silicon のみ（`build.yml` は arm64 ランナー）。Intel 対応するなら universal ビルドが先。
 
 ## スコープ外（逆戻りガード）

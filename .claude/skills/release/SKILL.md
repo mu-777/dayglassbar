@@ -136,14 +136,39 @@ git push --follow-tags
 
 ## Phase 6: リリースの確認
 
-GitHub Actions（`build` workflow）が走り、Windows/macOS のビルド後に Release を公開する（数分〜十数分）。
+GitHub Actions（`build` workflow）が走り、Windows/macOS のビルド後に Release を公開する（数分〜十数分）。**可能な限り自分で確認まで済ませ、ユーザーに丸投げしない**。以下を上から順に試す。
 
-- `gh` CLI があれば: `gh run watch` → 完了後 `gh release view v<新版>` で本文が CHANGELOG の該当節と一致することを確認。
-- 無ければユーザーに以下の URL を提示して確認を依頼:
-  - Actions: `https://github.com/mu-777/dayglassbar/actions`
-  - Release: `https://github.com/mu-777/dayglassbar/releases/tag/v<新版>`
+### A. `gh` CLI が使える場合（`gh auth status` が通る）
 
-確認ポイントをユーザーに伝える:
+```bash
+gh run list --workflow=build.yml --limit 3        # 対象タグの run を特定
+gh run watch <run-id>                              # 完了まで待つ（省略可）
+gh release view v<新版>                            # 本文・添付物を確認
+gh release view v<新版> --json assets --jq '.assets[].name'   # 添付物一覧だけ
+```
+
+### B. `gh` が無い／未認証の場合 → 公開リポジトリの REST API を curl で叩く
+
+**repo は public なので認証不要**（`gh auth login` は対話ログインが要るので非対話セッションでは通らない。無理に認証しようとせず、こちらに切り替える）。`gh` バイナリの root なしローカル導入は可能だが、認証は別途必要な点に注意。
+
+```bash
+# Actions run の status/conclusion（build と pages 両方を見る）
+curl -fsSL "https://api.github.com/repos/mu-777/dayglassbar/actions/runs?per_page=5" \
+  | grep -E '"name"|"head_branch"|"status"|"conclusion"|"html_url"'
+
+# Release の公開状態・添付物・本文
+curl -fsSL "https://api.github.com/repos/mu-777/dayglassbar/releases/tags/v<新版>" \
+  | grep -E '"draft"|"prerelease"|"published_at"|"browser_download_url"|"size"'
+curl -fsSL "https://api.github.com/repos/mu-777/dayglassbar/releases/tags/v<新版>" \
+  | python3 -c "import sys,json;print(json.load(sys.stdin)['body'][:600])"
+```
+
+### C. どちらも不可なら、ユーザーに URL を提示して確認を依頼
+
+- Actions: `https://github.com/mu-777/dayglassbar/actions`
+- Release: `https://github.com/mu-777/dayglassbar/releases/tag/v<新版>`
+
+確認ポイント（A/B で自分が見る場合も、C でユーザーに伝える場合も同じ）:
 1. Release 本文 = CHANGELOG の該当節（案内コメントやリンク定義が混入していない）
 2. `.exe`（Setup + portable）と `.dmg` が添付されている
 3. 配布ページ（`https://mu-777.github.io/dayglassbar/`）の DL リンクが新版を指す（`releases/latest` を読むので自動。反映はブラウザ再読込で）

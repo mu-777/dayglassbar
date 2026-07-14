@@ -224,8 +224,25 @@
 
         <div class="note">
           <strong data-i18n="download.unsigned.h">Heads up: the app isn't code-signed yet.</strong>
-          <span data-i18n="download.unsigned.p">On Windows, the SmartScreen prompt may appear — click <em>More info → Run anyway</em>. On macOS, right-click the app → <em>Open</em> (or run <code>xattr -dr com.apple.quarantine</code> on it).</span>
+          <p data-i18n="download.unsigned.win">Windows: if the SmartScreen prompt appears, click <em>More info → Run anyway</em>.</p>
+          <p data-i18n="download.unsigned.mac">macOS: the first launch shows <em>“DayGlassBar” is damaged and can't be opened</em>. The file isn't damaged — this is how macOS blocks unsigned apps downloaded from the web. Drag the app into <em>Applications</em>, run <code>xattr -cr /Applications/DayGlassBar.app</code> once in Terminal, then open it again.</p>
         </div>
+
+        <dialog class="dl-dialog" id="macDlDialog" aria-labelledby="macDlDialogTitle">
+          <h3 id="macDlDialogTitle" data-i18n="dlmodal.title">Downloading — one step before first launch</h3>
+          <p data-i18n="dlmodal.intro">On first launch, macOS will say “DayGlassBar” is damaged and can't be opened. The file is fine — this is how macOS treats unsigned apps. Do this once:</p>
+          <ol>
+            <li data-i18n="dlmodal.step1">Drag DayGlassBar into <em>Applications</em></li>
+            <li>
+              <span data-i18n="dlmodal.step2">Run this once in Terminal:</span>
+              <span class="dl-dialog__cmd"><code id="macDlCmd">xattr -cr /Applications/DayGlassBar.app</code><button type="button" id="macDlCopy" data-i18n="dlmodal.copy">Copy</button></span>
+            </li>
+            <li data-i18n="dlmodal.step3">Open it again — from then on it starts normally.</li>
+          </ol>
+          <div class="dl-dialog__actions">
+            <button type="button" class="btn btn--primary" id="macDlClose" data-i18n="dlmodal.close">Got it</button>
+          </div>
+        </dialog>
 
         <p class="all-releases">
           <a href="https://github.com/mu-777/dayglassbar/releases" rel="noopener" target="_blank" data-i18n="download.all">All releases &amp; release notes →</a>
@@ -277,6 +294,8 @@
       </div>
       <p class="footer__tag" data-i18n="footer.tag">A nudge, not a nag.</p>
       <nav class="footer__links">
+        <a href="privacy.html" data-i18n="footer.privacy">Privacy</a>
+        <a href="terms.html" data-i18n="footer.terms">Terms of Service</a>
         <a id="footerSupport" class="footer__support" href="https://ko-fi.com/mu_777" rel="noopener" target="_blank">
           <img class="footer__support-icon" src="assets/kofi_symbol.svg" alt="" width="22" height="18" />
           <span data-i18n="footer.support">Support me on Ko-fi</span>
@@ -288,5 +307,7 @@
 
   <script src="app.js"></script>
   <script src="demo.js"></script>
+  <!-- Cookie-free aggregate visit counts; token is set. See web/README.md to reissue/reconfigure. -->
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "fb42f73bcc514eceb4a3ebac0891400a"}'></script>
 </body>
 </html>

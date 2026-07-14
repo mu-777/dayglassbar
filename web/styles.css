@@ -337,8 +337,54 @@ a:hover { text-decoration: underline; }
   font-size: 0.95rem;
 }
 .note strong { color: var(--text); display: block; margin-bottom: 4px; }
+.note p { margin: 0; }
+.note p + p { margin-top: 6px; }
 .note code { background: rgba(255, 255, 255, 0.08); padding: 1px 6px; border-radius: 5px; font-size: 0.88em; }
 .all-releases { margin-top: 22px; }
+
+/* macOS download modal (Gatekeeper workaround) */
+.dl-dialog {
+  margin: auto;
+  width: min(480px, calc(100vw - 32px));
+  background: var(--bg-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 26px 28px;
+  box-shadow: var(--shadow);
+}
+.dl-dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+.dl-dialog h3 { margin: 0 0 10px; font-size: 1.2rem; }
+.dl-dialog > p { margin: 0 0 16px; color: var(--muted); }
+.dl-dialog ol { margin: 0 0 20px; padding-left: 1.3em; }
+.dl-dialog li { margin-bottom: 12px; color: var(--text); }
+.dl-dialog li:last-child { margin-bottom: 0; }
+.dl-dialog__cmd {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.dl-dialog__cmd code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-size: 0.88em;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+.dl-dialog__cmd button {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 7px;
+  padding: 3px 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.dl-dialog__cmd button:hover { border-color: var(--accent); background: var(--surface-2); }
+.dl-dialog__actions { display: flex; justify-content: flex-end; margin-top: 4px; }
 
 /* ============ FAQ ============ */
 .faq details {
@@ -370,6 +416,14 @@ a:hover { text-decoration: underline; }
 .faq-support a { color: var(--accent); text-decoration: none; }
 .faq-support a:hover { text-decoration: underline; }
 
+/* ============ Legal (privacy page) ============ */
+.legal__updated { color: var(--muted); font-size: 0.9rem; margin: 0 0 28px; }
+.legal h2 { margin: 36px 0 10px; font-size: 1.3rem; }
+.legal h2:first-of-type { margin-top: 28px; }
+.legal p, .legal li { color: var(--muted); }
+.legal ul { padding-left: 1.2em; margin: 0 0 8px; }
+.legal li { margin-bottom: 10px; }
+
 /* ============ Footer ============ */
 .site-footer { border-top: 1px solid var(--border); padding: 40px 0 28px; background: var(--bg-alt); }
 .footer__grid {
@@ -380,7 +434,7 @@ a:hover { text-decoration: underline; }
 }
 .footer__brand { display: flex; align-items: center; gap: 9px; font-weight: 700; }
 .footer__tag { color: var(--muted); margin: 0; }
-.footer__links { margin-left: auto; display: flex; gap: 22px; }
+.footer__links { margin-left: auto; display: flex; align-items: center; gap: 22px; }
 .footer__links a { color: var(--muted); }
 /* Ko-fi support button — beige pill (brand asset), app-side dark ink so it reads on the beige. */
 .footer__links a.footer__support {

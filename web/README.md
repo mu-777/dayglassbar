@@ -6,6 +6,8 @@
 | ファイル | 役割 |
 | --- | --- |
 | `index.html` | ページ本体。英/日対応＝翻訳対象の文字列はすべて `data-i18n="key"` を持つ。 |
+| `privacy.html` | プライバシーポリシー（アプリ本体＋このサイトの Cloudflare Web Analytics を開示）。`index.html` と同じ `app.js` の i18n/lang toggle を共有。 |
+| `terms.html` | 利用規約（Google OAuth 本番審査で同意画面への ToS リンク登録が必須のため。根拠は `docs/google-oauth-legal-pages.md`）。`index.html` と同じ `app.js` の i18n/lang toggle を共有。 |
 | `styles.css` | アプリアイコン由来のダークテーマ（濃紺＋クールブルー1色）。 |
 | `app.js` | 英/日トグル（catalog 内蔵）・OS 判定・GitHub Releases のライブ取得。 |
 | `assets/` | 画像（`icon.png`・`og.png`＝OG カード・`kofi_symbol.svg`）。実スクショもここに置く。 |
@@ -65,6 +67,23 @@ Windows/macOS ボタンとバージョンを自動で埋めます。
 撮影方法: Windows/macOS でアプリを起動し、`DAYGLASSBAR_FAKE_NOW` で区間内の
 時刻にしてから OS のスクショ機能で撮ります。（リポジトリの
 `tools/capture-bar.mjs` でバー窓を描画して撮ることもできます。）
+
+## Web Analytics（Cloudflare）
+
+`index.html`・`privacy.html` の `</body>` 直前に、訪問数を見るための
+Cloudflare Web Analytics のビーコンスクリプトが入っています。Cookie 不要・
+同意バナー不要（`docs/google-oauth-publishing.md` 検討時に GA4 は Cookie
+同意バナーが実質必須と判明し不採用。代わりにこちらを採用）。
+
+トークンは設定済みです。再発行・サイト変更時は以下の手順で取得し、
+`index.html`・`privacy.html` 両方の `data-cf-beacon` の `token` を差し替えます。
+
+1. Cloudflare ダッシュボード → **Web Analytics** → **Add a site**。
+2. サイトの追加方法は「JavaScript snippet」（DNS を Cloudflare に移す必要はない）。
+   ホスト名は `mu-777.github.io`。
+3. 発行された snippet 内の `token` の値をコピーし、`index.html`・`privacy.html`
+   両方の `data-cf-beacon` の `token` を置き換える。
+4. ダッシュボードに数値が出るまで数分かかる（[公式ドキュメント](https://developers.cloudflare.com/web-analytics/get-started/)）。
 
 ## ローカルプレビュー
 

@@ -17,6 +17,7 @@
     "icons": "node tools/gen-icons.mjs",
     "capture": "electron tools/capture-bar.mjs",
     "og": "electron tools/gen-og.mjs",
+    "dmg-bg": "electron tools/gen-dmg-background.mjs",
     "version": "node tools/stamp-changelog.mjs && git add CHANGELOG.md",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
@@ -51,6 +52,15 @@
       ],
       "category": "public.app-category.utilities",
       "icon": "assets/icon.png"
+    },
+    "dmg": {
+      "background": "assets/dmg/background.png",
+      "window": { "width": 540, "height": 380 },
+      "iconSize": 100,
+      "contents": [
+        { "x": 130, "y": 150, "type": "file" },
+        { "x": 410, "y": 150, "type": "link", "path": "/Applications" }
+      ]
     },
     "nsis": {
       "oneClick": true,

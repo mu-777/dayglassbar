@@ -133,7 +133,10 @@ git push --follow-tags   # push → Actions がビルド＆該当節を本文に
 
 初回リリース（`v0.1.0`）は `package.json` が既に `0.1.0`・`CHANGELOG.md` の `[0.1.0]` も記入済みのため、バンプ不要でタグだけ打ちます: `git tag v0.1.0 && git push --follow-tags`。
 
-未署名のため、配布先では Windows は SmartScreen の「詳細→実行」、macOS は右クリック→「開く」（または `xattr -dr com.apple.quarantine <App>` で隔離属性を解除）が必要です。
+未署名のため、配布先では初回のみ次の一手間が必要です。
+
+- **Windows**: SmartScreen が出たら「詳細情報 → 実行」。
+- **macOS**: 初回起動が「“DayGlassBar”は壊れているため開けません」でブロックされます（ファイル破損ではなく、未署名アプリに対する Gatekeeper の仕様）。アプリを「アプリケーション」へドラッグした後、ターミナルで `xattr -cr /Applications/DayGlassBar.app` を一度実行してから起動します。右クリック→「開く」ではこのダイアログは回避できません。この手順は紹介ページのダウンロード時モーダルと、DMG を開いた画面の背景画像にも表示されます（背景は [`assets/dmg/`](assets/dmg/)・再生成は `npm run dmg-bg`。`package.json` の `build.dmg` のアイコン座標とレイアウトが連動しているため、座標を変えたら背景も作り直します）。経緯と署名・公証（notarization）を導入する場合の手順は [`docs/macos-signing.md`](docs/macos-signing.md)。
 
 ## 紹介・配布ページ（GitHub Pages）
 
@@ -141,8 +144,11 @@ git push --follow-tags   # push → Actions がビルド＆該当節を本文に
 
 - 公開: [`.github/workflows/pages.yml`](.github/workflows/pages.yml) が `web/` をそのまま Pages にアップロードします（ビルド工程なし）。`web/` を変更した push、または *Run workflow* で実行。**一度だけ** リポジトリの Settings → Pages → Source を「GitHub Actions」に設定します。
 - ダウンロードリンク: ページの JS が `releases/latest` を GitHub API で読み、`v*` タグで GitHub Actions が公開した**最新リリースの `.exe`/`.dmg` を自動反映**します（リリースごとの手編集は不要）。リポジトリが **public** であることが前提。
+- macOS 向け案内: `.dmg` のダウンロードリンクをクリックすると、初回起動手順（上記 Gatekeeper 回避）のモーダルを表示します（ダウンロードは中断しません）。
 - 画像: ヒーローとホバー説明は SVG モックアップで仮置きしてあります。実スクリーンショットへの差し替え手順は [`web/README.md`](web/README.md)。
 - OG カード（SNS 共有時のプレビュー画像）: `web/assets/og.png`（1200×630）。`npm run og`（[`tools/gen-og.mjs`](tools/gen-og.mjs)）で再生成します。
+- プライバシーポリシー: [`web/privacy.html`](web/privacy.html)（`https://mu-777.github.io/dayglassbar/privacy.html`）。アプリ本体のデータの扱いと、このサイトの Cloudflare Web Analytics（Cookie 不要の訪問数計測）を開示します。
+- 利用規約: [`web/terms.html`](web/terms.html)（`https://mu-777.github.io/dayglassbar/terms.html`）。Google OAuth の本番審査では同意画面への利用規約リンクの登録が必要なため用意しています（要件の根拠は [`docs/google-oauth-legal-pages.md`](docs/google-oauth-legal-pages.md)）。
 
 ## 初期設定（インストール直後）
 

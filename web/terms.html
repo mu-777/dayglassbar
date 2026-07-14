@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Terms of Service — DayGlassBar</title>
+  <meta name="description" data-i18n="terms.meta"
+    content="Terms of service for the DayGlassBar desktop app and this website." />
+
+  <link rel="icon" type="image/png" href="assets/icon.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <!-- ============ Header ============ -->
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html" aria-label="DayGlassBar">
+        <img class="brand__icon" src="assets/icon.png" alt="" width="28" height="28" />
+        <span class="brand__name">DayGlassBar</span>
+      </a>
+      <nav class="nav__links" aria-label="Primary">
+        <a href="index.html" data-i18n="nav.home">← Back to DayGlassBar</a>
+      </nav>
+      <button id="langToggle" class="lang-toggle" type="button" aria-label="Switch language">日本語</button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="section">
+      <div class="container container--narrow legal">
+        <h1 class="section__title" data-i18n="terms.title">Terms of Service</h1>
+        <p class="legal__updated" data-i18n="terms.updated">Last updated: July 15, 2026</p>
+
+        <p data-i18n="terms.intro">These terms apply to the DayGlassBar desktop app and to this website. By downloading or using the app, or by using this site, you agree to these terms. If you do not agree, please do not use the app or this site.</p>
+
+        <h2 data-i18n="terms.license.h">License and cost</h2>
+        <p data-i18n="terms.license.1">DayGlassBar is free, open-source software released under the MIT License. You may use, copy, modify, and redistribute it under the terms of that license. The full license text is in the <a href="https://github.com/mu-777/dayglassbar/blob/master/LICENSE" rel="noopener" target="_blank">project repository</a>.</p>
+
+        <h2 data-i18n="terms.asis.h">No warranty</h2>
+        <p data-i18n="terms.asis.1">The app and this website are provided “as is”, without warranty of any kind. To the maximum extent permitted by law — and as stated in the MIT License — the author is not liable for any damages arising from your use of, or inability to use, the app or this site.</p>
+
+        <h2 data-i18n="terms.use.h">Acceptable use</h2>
+        <p data-i18n="terms.use.1">Use the app in compliance with applicable laws. If you enable the Google Calendar integration, you must also follow Google’s own terms. Do not use the app to abuse, disrupt, or gain unauthorized access to any third-party service.</p>
+
+        <h2 data-i18n="terms.google.h">Third-party services (Google Calendar)</h2>
+        <p data-i18n="terms.google.1">The Google Calendar integration is optional and off by default. Your use of Google services through the app is also governed by <a href="https://policies.google.com/terms" rel="noopener" target="_blank">Google’s Terms of Service</a>. How DayGlassBar handles data received from Google APIs is described in our <a href="privacy.html">Privacy Policy</a>, and adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" rel="noopener" target="_blank">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+
+        <h2 data-i18n="terms.donations.h">Donations</h2>
+        <p data-i18n="terms.donations.1">The app is free. Donations via Ko-fi are voluntary and are not payment for the software or for any additional features. Donations are processed by Ko-fi under its own terms.</p>
+
+        <h2 data-i18n="terms.changes.h">Changes to these terms</h2>
+        <p data-i18n="terms.changes.1">We may update these terms from time to time, and will update the “Last updated” date above when we do. Continued use of the app or this site after a change means you accept the updated terms.</p>
+
+        <h2 data-i18n="terms.law.h">Governing law</h2>
+        <p data-i18n="terms.law.1">These terms are governed by the laws of Japan.</p>
+
+        <h2 data-i18n="terms.contact.h">Contact</h2>
+        <p data-i18n="terms.contact.p">Questions? <a href="https://github.com/mu-777/dayglassbar/issues" rel="noopener" target="_blank">Open an issue on GitHub</a>.</p>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ Footer ============ -->
+  <footer class="site-footer">
+    <div class="container footer__grid">
+      <div class="footer__brand">
+        <img src="assets/icon.png" alt="" width="22" height="22" />
+        <span>DayGlassBar</span>
+      </div>
+      <p class="footer__tag" data-i18n="footer.tag">A nudge, not a nag.</p>
+      <nav class="footer__links">
+        <a href="privacy.html" data-i18n="footer.privacy">Privacy</a>
+        <a href="terms.html" data-i18n="footer.terms">Terms of Service</a>
+        <a id="footerSupport" class="footer__support" href="https://ko-fi.com/mu_777" rel="noopener" target="_blank">
+          <img class="footer__support-icon" src="assets/kofi_symbol.svg" alt="" width="22" height="18" />
+          <span data-i18n="footer.support">Support me on Ko-fi</span>
+        </a>
+      </nav>
+    </div>
+    <p class="footer__copy">© <span id="year">2026</span> <a href="https://github.com/mu-777" rel="noopener" target="_blank">mu-777</a></p>
+  </footer>
+
+  <script src="app.js"></script>
+  <!-- Cookie-free aggregate visit counts; token is set. See web/README.md to reissue/reconfigure. -->
+  <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "fb42f73bcc514eceb4a3ebac0891400a"}'></script>
+</body>
+</html>
