@@ -1,7 +1,7 @@
 {
   "name": "dayglassbar",
   "productName": "DayGlassBar",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Ambient desktop app that shows the time left in your day as a thin bar quietly draining at the edge of your screen. No numbers, no color changes, no alarms.",
   "type": "module",
   "main": "src/main/index.js",
@@ -55,11 +55,23 @@
     },
     "dmg": {
       "background": "assets/dmg/background.png",
-      "window": { "width": 540, "height": 380 },
+      "window": {
+        "width": 540,
+        "height": 380
+      },
       "iconSize": 100,
       "contents": [
-        { "x": 130, "y": 150, "type": "file" },
-        { "x": 410, "y": 150, "type": "link", "path": "/Applications" }
+        {
+          "x": 130,
+          "y": 150,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 150,
+          "type": "link",
+          "path": "/Applications"
+        }
       ]
     },
     "nsis": {

@@ -17,6 +17,8 @@ tools/stamp-changelog.mjs がこの [Unreleased] 見出しを `## [x.y.z] - YYYY
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-07-14
+
 ### Added
 
 - macOS: インストール用 DMG を開いた画面に背景を追加し、手順（「アプリケーション」へのドラッグと、初回起動前に一度実行する解除コマンド）を表示するようにした
@@ -41,5 +43,6 @@ tools/stamp-changelog.mjs がこの [Unreleased] 見出しを `## [x.y.z] - YYYY
 - 紹介・配布用の静的サイト（`web/`・GitHub Pages）。DL リンクは `releases/latest` を自動反映。
 - Ko-fi による任意の寄付導線。
 
-[Unreleased]: https://github.com/mu-777/dayglassbar/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/mu-777/dayglassbar/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/mu-777/dayglassbar/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mu-777/dayglassbar/releases/tag/v0.1.0
