@@ -46,6 +46,17 @@
 | R8 | "If you change the way your application uses Google user data, you must notify users and prompt them to consent to an updated privacy policy before you make use of Google user data in a new way or for a different purpose than originally disclosed." | S4 | `privacy.changes.1`（変更時はポリシーを先に更新し、新用途の前に再同意を求める）。 |
 | R9 | In-product 開示: S5 は、データアクセスの開示を "Cannot be placed only in a privacy policy or terms of service" とする（アプリ内でも分かるように）。 | S5 | アプリ側の対応: 接続は必ず Google 自身の同意画面を経由（`calendar:connect`＝OAuth）し、設定 UI にカレンダー連携の説明がある。**スコープを増やす場合は設定 UI 側の説明も更新すること。** |
 
+### 実装エビデンス: 「トークンは OS 標準の暗号化で保護・エクスポート対象外」（R4 の「保存」＝`privacy.app.2`）
+
+`privacy.app.2`（"Google サインインのトークンは端末内で OS 標準の暗号化により保護され、設定のエクスポートには含まれません"）は Privacy Policy の中でも**検証可能な事実主張**なので、それを保証しているコードに紐付けておく。審査や問い合わせで「本当にそうなっているのか」を問われたときの一次証跡。**2026-07-15 のコードで確認済み。**
+
+| 主張 | 保証しているコード | なぜそう言えるか |
+|------|------------------|----------------|
+| トークンは端末内で **OS 標準の暗号化**により保護される | `src/main/calendar/token-store.js`: `:45` 保存＝`safeStorage.encryptString(json)` ／ `:32` 読み出し＝`safeStorage.decryptString(raw)` ／ `:16` 保存先＝`userData/calendar-accounts.enc` | Electron の `safeStorage` は **OS のクレデンシャル基盤**で暗号化する＝**Windows は DPAPI／macOS は Keychain**。これが「OS 標準の暗号化」の実体。リフレッシュトークン・接続アカウント・カレンダー選択を含む JSON 全体を暗号化 blob として書く。 |
+| **設定のエクスポートには含まれない** | `src/main/index.js:302-316`（`settings:export` が書き出すのは `store.get()`＝`settings.json` の中身のみ・`:311`） | エクスポート経路がトークンのファイル（別ファイルの `calendar-accounts.enc`）を**そもそも読まない**構造。設定リセット（`index.js:191-196`）・診断ダンプ（`src/main/diagnostics.js`）も同ファイルを除外＝**3経路すべてで秘匿分離が徹底**されている（決定4／不変条件 #7）。`settings.json` に入る `appearance.calendar` は表示 ON/OFF・色・接続方法のみ（非秘匿）で、トークンもアカウントも含まない。 |
+
+**限定条件（審査で正確に答えるために）**: 暗号化されるのは `safeStorage.isEncryptionAvailable()` が真のときのみ。偽の環境では**平文フォールバック**で書く（`token-store.js:32`/`:45` の三項演算子。設定 UI に注意表示 `calendar.encUnavailable`＝決定4）。これが起きるのは主に **Linux でキーリング（gnome-keyring/kwallet）が無い場合と dev 環境**で、**配布対象の Windows（DPAPI は常時利用可）・macOS（Keychain）では常に暗号化される**。したがって配布対象 OS 向けの記述として `privacy.app.2` は常に成立する（Linux は配布対象外＝自動起動も `applyAutoLaunch` で対象外）。**この前提が変わる（Linux を配布対象に加える）場合は、`privacy.app.2` の記述に OS の限定を足すか、平文フォールバックを廃するかを判断すること。**
+
 ### Terms of Service（web/terms.html）
 
 | # | 要件（原文引用） | 出典 | 実装 |
@@ -59,6 +70,7 @@
 - **terms.html とフッターの ToS リンクを削除しない**。external 本番アプリは ToS リンクが無いと審査を提出できない（R10）。
 - **privacy のスコープ列挙（openid・email 含む）と `src/main/calendar/google.js` の scope を乖離させない**。スコープを増やす場合は privacy を先に更新し再同意を得る（R5・R8）。設定 UI 側の説明更新も忘れない（R9）。
 - **Limited Use 宣言文（`privacy.google.1`）を弱めたり削除したりしない**（R7。審査で最も定型的に確認される文言）。
+- **トークンを `settings.json`／`store` に移さない・`settings:export` が `store.get()` 以外を書き出すようにしない・`token-store.js` の `safeStorage` 暗号化を外さない**。この3つのどれかを崩した時点で `privacy.app.2`（OS 暗号化・エクスポート対象外）が**虚偽記載になる**（上の「実装エビデンス」節が根拠。決定4／不変条件 #7）。秘匿の保存先を変える必要が出たら、コードより先に privacy の記述を直す。
 - **「アプリは一切収集なし」への逆戻り禁止**（既存ガード: docs/google-oauth-publishing.md 手順1。サイト側に Cloudflare Web Analytics があるため「アプリ本体は非収集」「サイトは訪問数集計あり」の書き分けを維持）。
 
 ## 関連

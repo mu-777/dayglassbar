@@ -85,6 +85,6 @@ DAYGLASSBAR_DEBUG=1 npm start
 - 常時最前面の決定記録（ポーリング再宣言採用の経緯・代替案=blur/ネイティブの不採用理由・逆戻りガード・問題時の手順）: `docs/always-on-top.md`
 - カレンダー連携の決定記録（OAuth＋PKCE・Google は client_secret 必須/Microsoft は不要・ICS不採用・依存ゼロ・秘匿分離・終日除外・ポーリング頻度/クォータ・push通知非採用・逆戻りガード・OAuth アプリ登録手順）: `docs/calendar-integration.md`
 - Google OAuth 一般公開の手順書（プライバシーポリシー・同意画面の本番化・sensitive scope 審査・テスト運用時の7日失効の注意。未実施）: `docs/google-oauth-publishing.md`
-- Google OAuth 審査向け Privacy/ToS の要件根拠（公式原文の引用→記載内容の対応表・ToS 必須性の判断・Limited Use 宣言・逆戻りガード）: `docs/google-oauth-legal-pages.md`
+- Google OAuth 審査向け Privacy/ToS の要件根拠（公式原文の引用→記載内容の対応表・ToS 必須性の判断・Limited Use 宣言・**プライバシーポリシーの事実主張を保証しているコードの file:line 対応表＝「実装エビデンス」節**・逆戻りガード）: `docs/google-oauth-legal-pages.md`
 - 配布チャネルの将来対応（winget / Homebrew cask の背景・登録手順・自動化方針。未実施）: `docs/distribution-channels.md`
 - macOS 配布と Gatekeeper の決定記録（「壊れているため開けません」＝未署名アプリへの正常動作・無署名＋`xattr -cr` 案内で運用・右クリック→「開く」は効かない・署名/公証（年$99）導入時の手順。未実施）: `docs/macos-signing.md`

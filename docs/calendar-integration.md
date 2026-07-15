@@ -48,6 +48,7 @@
 - `settings.json` 側（`appearance.calendar`）は**表示設定（有効/色）のみ**。接続状態は `calendar:status`(IPC) で別取得（UI は秘匿に触れない）。
 - `safeStorage` 不可環境では平文フォールバック＋設定 UI に注意（`calendar.encUnavailable`）。
 - **逆戻りガード**: 「アカウント情報も settings に入れたら楽」としない（エクスポートでメール/トークンが漏れる）。
+- **この分離はプライバシーポリシーの記載（`privacy.app.2`「トークンは OS 標準の暗号化で保護・エクスポート対象外」）の根拠そのもの**＝崩すと虚偽記載になる。保証しているコードの file:line 対応表（`token-store.js` の `safeStorage`／`settings:export` が `store.get()` のみを書く／リセット・診断も除外）は `docs/google-oauth-legal-pages.md`「実装エビデンス」節。保存先を変えるときはコードより先に privacy を直す。
 
 ## 決定5: 取得は毎秒ではなくタイマ（不変条件 #1 と整合）
 - `CalendarService` が**タイマ＋接続/設定変更時＋スリープ復帰時**にだけ取得してキャッシュ。毎秒の bar tick は `getBarState`→`computeEventSegments` でキャッシュを `now` に再クリップするだけ。経過の積算はしない。
