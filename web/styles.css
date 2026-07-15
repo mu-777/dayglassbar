@@ -258,6 +258,8 @@ a:hover { text-decoration: underline; }
   border-bottom: 1px solid rgba(255, 255, 255, 0.14);
   /* top + height set by demo.js (percent); hidden once it has passed */
 }
+/* stepped mode (prefers-reduced-motion, set by demo.js): snap instead of animating */
+.dgb--steps, .dgb--steps .dgb__labels { transition: none; }
 .dgb__labels { position: absolute; inset: 0; opacity: 0; transition: opacity 0.35s; pointer-events: none; }
 .dgb.is-hover .dgb__labels { opacity: 1; }
 .dgb__edge { position: absolute; left: 12px; font-size: 12px; font-variant-numeric: tabular-nums; }

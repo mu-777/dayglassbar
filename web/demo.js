@@ -1,6 +1,10 @@
 /* Hero demo: drives the desktop scene so the bar visibly drains and then
    hover-expands, on a loop. Geometry is percentage-based (no pixel measuring),
-   so it stays correct at any size. Honors prefers-reduced-motion. */
+   so it stays correct at any size.
+   prefers-reduced-motion: the same loop runs as a 1s-step slideshow instead of
+   a smooth sweep. Never freeze to a still frame here — Android Chrome reports
+   `reduce` whenever the OS animation scale is off (battery saver, "remove
+   animations"), so a still frame looks broken to a large share of phones. */
 
 'use strict';
 
@@ -71,16 +75,18 @@
     bar.classList.toggle('is-hover', hover);
   }
 
+  // Stepped mode (see header): quantize time to 1s so states change but
+  // nothing moves continuously; .dgb--steps turns off the CSS transitions
+  // so the hover expansion snaps instead of animating.
   const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduce) {
-    render(840, true); // a representative still frame: 14:00, expanded
-    return;
-  }
+  const STEP = reduce ? 1000 : 0;
+  if (reduce) bar.classList.add('dgb--steps');
 
   let t0 = null;
   function frame(ts) {
     if (t0 === null) t0 = ts;
-    const e = (ts - t0) % CYCLE;
+    let e = (ts - t0) % CYCLE;
+    if (STEP) e = Math.floor(e / STEP) * STEP;
     let nowMin, hover;
     if (e < SWEEP) {
       nowMin = lerp(NOW_FROM, NOW_TO, e / SWEEP);
