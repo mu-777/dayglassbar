@@ -11,6 +11,17 @@
 // join into one opaque id string ("EntryID|StoreID", both hex so '|' never collides) so the
 // selection list is a flat array of ids like the cloud providers.
 //
+// Output encoding: powershell.exe writes redirected stdout in the *console output code page*
+// (CP932 on Japanese Windows, CP1252 on western ones), while child_process decodes it as UTF-8
+// — so any non-ASCII subject or folder name arrived as mojibake. Worse, a Shift_JIS trail byte
+// of 0x5C ("ソ", "表", ...) survives the bad decode as a stray backslash inside a JSON string
+// and can make JSON.parse throw, killing the whole fetch. Both scripts therefore emit
+// **pure ASCII** via ConvertTo-AsciiJson (every non-ASCII char re-escaped as \uXXXX, which is
+// what JSON wants anyway), so the bytes are identical under every code page. Setting
+// [Console]::OutputEncoding on top is belt-and-braces for stderr diagnostics; it is wrapped in
+// try/catch because a missing console handle must not abort the run.
+// Regression guard: do not "simplify" the emitter back to a bare ConvertTo-Json pipe.
+//
 // mapOutlookJson / mapOutlookFolders are pure and unit-tested; the COM runs are verified by
 // hand on Windows.
 import { execFile } from 'node:child_process';
@@ -20,12 +31,32 @@ const execFileP = promisify(execFile);
 
 const psEsc = (v) => String(v ?? '').replace(/'/g, "''");
 
+// Shared prologue for every PowerShell run: fail fast, make stderr readable when a console is
+// available, and provide the ASCII-only JSON emitter (see the encoding note at the top).
+// Non-ASCII is escaped per UTF-16 code unit, which is exactly how JSON spells astral chars
+// (surrogate pairs stay valid). Control chars are escaped too, so a stray one cannot break parse.
+// The escape's backslash comes from [char]92: PowerShell single quotes do not process escapes,
+// and a literal backslash here would have to be doubled in this JS template literal.
+const PS_PROLOGUE = `
+$ErrorActionPreference = 'Stop'
+try { [Console]::OutputEncoding = New-Object System.Text.UTF8Encoding $false } catch {}
+function ConvertTo-AsciiJson($value) {
+  $json = $value | ConvertTo-Json -Compress
+  if ($null -eq $json) { return '' }
+  $sb = New-Object System.Text.StringBuilder
+  foreach ($ch in $json.ToCharArray()) {
+    $c = [int][char]$ch
+    if ($c -ge 0x20 -and $c -le 0x7E) { [void]$sb.Append($ch) } else { [void]$sb.AppendFormat('{0}u{1:x4}', [char]92, $c) }
+  }
+  return $sb.ToString()
+}
+`;
+
 // olFolderCalendar=9, olAppointment=26, olAppointmentItem(DefaultItemType)=1, BusyStatus 0=Free.
 
 // Enumerate every calendar folder (DefaultItemType=1) across all connected stores, tagging
 // the account's default calendar. Depth-bounded so a giant Public Folders tree can't stall.
 const LIST_PS = `
-$ErrorActionPreference = 'Stop'
 $ol = New-Object -ComObject Outlook.Application
 $ns = $ol.GetNamespace('MAPI')
 $defId = $ns.GetDefaultFolder(9).EntryID
@@ -40,7 +71,7 @@ function Walk($folder, $depth) {
   try { foreach ($sub in $folder.Folders) { Walk $sub ($depth + 1) } } catch {}
 }
 foreach ($store in $ns.Stores) { try { Walk $store.GetRootFolder() 0 } catch {} }
-$script:out | ConvertTo-Json -Compress
+ConvertTo-AsciiJson $script:out
 `;
 
 // The Restrict filter matches by OVERLAP ([Start] <= windowEnd AND [End] >= windowStart), not
@@ -53,7 +84,6 @@ $script:out | ConvertTo-Json -Compress
 // so Node parses them back to the correct instant regardless of locale. <FOLDER_SPECS>
 // is an array of @{id;store} pairs; empty means "the default calendar folder".
 const FETCH_PS = `
-$ErrorActionPreference = 'Stop'
 $epoch = [datetime]'1970-01-01T00:00:00Z'
 $start = $epoch.AddMilliseconds(<START_MS>).ToLocalTime()
 $end = $epoch.AddMilliseconds(<END_MS>).ToLocalTime()
@@ -84,16 +114,19 @@ foreach ($folder in $folders) {
     }
   }
 }
-$out | ConvertTo-Json -Compress
+ConvertTo-AsciiJson $out
 `;
 
+// Every script runs with PS_PROLOGUE in front (ASCII-only JSON emitter + fail-fast). The output
+// is pure ASCII by construction, so the default utf8 decoding of stdout is lossless; the BOM
+// strip only guards against a host that prepends one after the OutputEncoding assignment.
 async function runPowerShell(script) {
   const { stdout } = await execFileP(
     'powershell.exe',
-    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script],
+    ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', PS_PROLOGUE + script],
     { timeout: 20000, windowsHide: true, maxBuffer: 8 * 1024 * 1024 },
   );
-  return stdout.trim();
+  return stdout.replace(/^\uFEFF/, '').trim();
 }
 
 // Outlook calendar-folder JSON (from LIST_PS) → [{ id, name, primary }]. Pure: no process/COM.
