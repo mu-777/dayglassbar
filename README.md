@@ -108,6 +108,17 @@ npm run dist:win
 - `/mnt/c/...`（Windows ドライブ）上では I/O が遅く、権限/シンボリックリンク絡みで失敗することがあります。その場合は Linux 側ホーム（例: `~/dayglassbar`）にクローンしてビルドします。
 - **生成した `.exe` が Windows で「このアプリはお使いの PC では実行できません」で起動しない場合**、ベースの `electron.exe` がダウンロード/展開途中で壊れていることがあります（生成された `dist/win-unpacked/DayGlassBar.exe` が `~/.cache/electron/electron-*-win32-x64.zip` 内の `electron.exe` より小さい＝欠損）。`rm -rf ~/.cache/electron && npm run dist:win` で取り直して再ビルドします。PE ヘッダだけ見ると正常に見えるので注意。
 
+### PR に動作確認用のビルドを付ける
+
+`.github/workflows/build.yml` は **master 宛の Pull Request でも走ります**。PR を作る（または push する）と windows-latest / macos-latest でその **PR の HEAD** がビルドされ、run ページの Artifacts から取得できます。
+
+| Artifact | 中身 |
+| --- | --- |
+| `dayglassbar-win` | `DayGlassBar Setup <version>.exe`（インストーラ）と `DayGlassBar <version>.exe`（portable） |
+| `dayglassbar-mac` | `.dmg`（arm64） |
+
+Release は作られません（`v*` タグの push のときだけ）。Artifact のダウンロードには GitHub へのログインが必要で、既定で 90 日で失効します。連続で push した場合、古い run は `concurrency` で打ち切られ最新だけが残ります。
+
 ### GitHub Actions でビルドする
 
 [`.github/workflows/build.yml`](.github/workflows/build.yml) が `windows-latest` / `macos-latest` ランナーでそれぞれネイティブにビルドします。`npm ci` を使うため `package-lock.json` をコミットしておきます。

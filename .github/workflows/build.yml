@@ -2,20 +2,37 @@ name: build
 
 # Windows と macOS の配布物を、それぞれのネイティブ環境で生成する。
 # WSL(Linux) からは macOS ビルドができないため、両OS分はここ(CI)で出す。
+#   - pull_request: PR の HEAD をビルドし Artifacts のみ生成（Release は作らない）
 #   - 手動実行 (workflow_dispatch): Artifacts のみ生成（Release は作らない）
 #   - v* タグ push: 両OSをビルドし GitHub Release にバイナリを添付
 # package-lock.json をコミットしておくこと（npm ci に必要）。
+#
+# pull_request で回す理由: レビュー時に実機で触れる Windows バイナリが要る。Linux から
+# nsis/portable をビルドするには Wine が必要で、クラウドセッションの環境には入っていない。
+# さらにエージェントのトークンには Actions の write が無く workflow_dispatch を叩けないので、
+# 「PR を作れば必ずバイナリが付く」形にしてある（詳細は .claude/skills/pr-build/SKILL.md）。
+# 逆戻りガード: この pull_request トリガを外すと、エージェントから Windows ビルドを出す手段が
+# なくなる（dispatch 権限が付与されない限り）。
 
 on:
   push:
     tags:
       - 'v*'
+  pull_request:
+    branches:
+      - master
   workflow_dispatch:
+
+# PR に連続で push したとき、古いビルドは打ち切って最新だけ残す。タグのビルドは
+# リリース成果物なので絶対に打ち切らない。
+concurrency:
+  group: build-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
     permissions:
-      contents: write          # タグ push 時に Release を作成するため
+      contents: write          # タグ push 時に Release を作成するため（PR ビルドでは Release 手順を踏まないので使われない）
     strategy:
       fail-fast: false
       matrix:
@@ -27,6 +44,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # PR では既定でマージコミット (refs/pull/N/merge) が checkout される。レビュー用の
+          # バイナリは「このブランチの HEAD をビルドしたもの」であってほしいので、PR の
+          # head SHA を明示する。タグ/手動実行では github.ref がそのまま使われる。
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
