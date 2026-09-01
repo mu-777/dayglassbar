@@ -67,6 +67,12 @@
       </div>
     </section>
 
+    <!-- Appearance is one grid per LINE rather than a single flowing grid: the fields pair up
+         by meaning (where the bar sits / how it behaves on hover / its colors / the track / the
+         ticks) and a single auto-filled grid reflowed those pairs apart at some widths. Every
+         row uses the same track template, so the columns still line up down the section.
+         The window's minWidth is set (settings-window.js) so the first row keeps its three
+         columns — that is the widest row and the one that must not wrap. -->
     <section>
       <h2 data-i18n="settings.appearance"></h2>
       <div class="grid">
@@ -87,6 +93,21 @@
           <span class="lbl" data-i18n="field.thickness"></span>
           <input type="number" id="f-thickness" min="1" max="64" step="1" />
         </label>
+      </div>
+      <!-- Hover behaviour lives here, not under "Behavior": both fields only describe how the
+           bar looks while expanded, so they belong next to the size and edge. They still save
+           to behavior.hover in settings.json — this is a UI move, not a schema change. -->
+      <div class="grid">
+        <label>
+          <span class="lbl" data-i18n="field.dwell"></span>
+          <input type="number" id="f-dwell" min="100" max="2000" step="50" />
+        </label>
+        <label>
+          <span class="lbl" data-i18n="field.expanded"></span>
+          <input type="number" id="f-expanded" min="24" max="200" step="4" />
+        </label>
+      </div>
+      <div class="grid">
         <label>
           <span class="lbl" data-i18n="field.color"></span>
           <input type="color" id="f-color" />
@@ -99,6 +120,8 @@
           <span class="lbl" data-i18n="field.breakColor"></span>
           <input type="color" id="f-break-color" />
         </label>
+      </div>
+      <div class="grid">
         <label class="check">
           <input type="checkbox" id="f-track" />
           <span data-i18n="field.track"></span>
@@ -107,6 +130,8 @@
           <span class="lbl"><span data-i18n="field.trackOpacity"></span> <span class="val" id="v-track-opacity"></span></span>
           <input type="range" id="f-track-opacity" min="0" max="1" step="0.02" />
         </label>
+      </div>
+      <div class="grid">
         <label class="check">
           <input type="checkbox" id="f-ticks" />
           <span data-i18n="field.ticks"></span>
@@ -166,14 +191,6 @@
         <label class="check">
           <input type="checkbox" id="f-autolaunch" />
           <span data-i18n="field.autoLaunch"></span>
-        </label>
-        <label>
-          <span class="lbl" data-i18n="field.dwell"></span>
-          <input type="number" id="f-dwell" min="100" max="2000" step="50" />
-        </label>
-        <label>
-          <span class="lbl" data-i18n="field.expanded"></span>
-          <input type="number" id="f-expanded" min="24" max="200" step="4" />
         </label>
       </div>
     </section>

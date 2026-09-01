@@ -291,6 +291,14 @@ input[type="range"] {
   gap: 12px 16px;
 }
 
+/* Appearance is built from several single-line grids stacked up (see index.html); they need
+   the same vertical rhythm the row gap used to give them inside one grid. auto-fill (not
+   auto-fit) keeps the empty tracks, so a two-field row still lines up with the three-field
+   rows above it. */
+.grid + .grid {
+  margin-top: 12px;
+}
+
 .grid label {
   display: flex;
   flex-direction: column;
