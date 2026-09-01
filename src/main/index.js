@@ -221,6 +221,19 @@ function main() {
     bar.refresh(); // apply now; onHiddenChanged rebuilds the tray
   }
 
+  // Applying settings means "do this and let me see it" — a hidden bar can't show the result,
+  // and the user would be left tweaking a bar that never appears. So every path that applies a
+  // settings change (save / import / reset) also lifts a temporary hide. It is also the escape
+  // hatch for someone who hid the bar by accident and went looking in Settings for the cause.
+  // No status message: the bar reappearing on screen is the feedback.
+  function clearTemporaryHide() {
+    if (!isTemporarilyHidden()) return;
+    hiddenUntilMs = 0;
+    store.setHiddenUntil(0);
+    log.info('temporary hide lifted by applying settings');
+    bar.refresh(); // onHiddenChanged rebuilds the tray so its checkmark clears too
+  }
+
   function summaryLine() {
     // A hidden bar reports that it is hidden. Showing today's hours as usual would leave the
     // menu looking completely normal while nothing is on screen — the state that made this
@@ -263,6 +276,7 @@ function main() {
       if (result.ok) {
         try {
           store.save(candidate); // store.onChange fans out to the bar etc.
+          clearTemporaryHide(); // "Save & apply" has to end with the bar actually on screen
           ipcLog.debug('settings saved');
         } catch (err) {
           // Disk full / permissions: validation passed but the write itself failed —
@@ -283,6 +297,7 @@ function main() {
     ipcMain.handle('settings:reset', () => {
       try {
         store.save(store.getDefaults());
+        clearTemporaryHide(); // back to a working default state, bar included
         ipcLog.info('settings reset to defaults');
         return { ok: true };
       } catch (err) {
@@ -420,6 +435,7 @@ function main() {
       }
       try {
         store.save(candidate); // store.onChange fans out to the bar etc.
+        clearTemporaryHide(); // an imported config should be visible, same as a save
       } catch (err) {
         ipcLog.error('settings import failed (write)', err);
         return { ok: false, error: tr('io.writeFail', { msg: err.message }) };
