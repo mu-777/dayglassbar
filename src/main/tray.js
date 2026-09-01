@@ -3,7 +3,9 @@
 import path from 'node:path';
 import { Tray, Menu, nativeImage, app } from 'electron';
 
-export function createAppTray({ onOpenSettings, onQuit, getSummary, getLabels }) {
+// `onToggleHidden` / `isHidden` drive the "hide until tomorrow" checkbox item — the one
+// control the click-through bar cannot offer itself (invariant #6), so it lives here.
+export function createAppTray({ onOpenSettings, onQuit, onToggleHidden, getSummary, getLabels, isHidden = () => false }) {
   const assetsDir = path.join(app.getAppPath(), 'assets');
   const iconFile = process.platform === 'darwin' ? 'trayTemplate.png' : 'tray.png';
   const image = nativeImage.createFromPath(path.join(assetsDir, iconFile));
@@ -19,10 +21,26 @@ export function createAppTray({ onOpenSettings, onQuit, getSummary, getLabels })
     // Hover hint so people who do find the icon learn it opens settings (the
     // in-app first-run guide is the primary discovery path).
     tray.setToolTip(labels.tooltip);
+    // Order matters. "Settings…" stays the FIRST clickable item because that is where it has
+    // always been and where people aim without reading — putting the hide toggle there cost a
+    // user their bar: they hit it on the way to Settings, and a hidden bar looks exactly like a
+    // broken one (it is gone from every display and survives a restart). The hide toggle
+    // therefore sits below Settings, fenced by separators.
+    // Checkbox rather than a label that flips wording: the tick shows at a glance that the bar
+    // is hidden on purpose — and it clears itself when the hide expires, because main rebuilds
+    // the menu from the bar's own visibility change.
     const menu = Menu.buildFromTemplate([
       { label: getSummary(), enabled: false },
       { type: 'separator' },
       { label: labels.settings, click: onOpenSettings },
+      { type: 'separator' },
+      {
+        label: labels.hide,
+        toolTip: labels.hideHint,
+        type: 'checkbox',
+        checked: isHidden(),
+        click: onToggleHidden,
+      },
       { type: 'separator' },
       { label: labels.quit, click: onQuit },
     ]);

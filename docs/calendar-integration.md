@@ -85,14 +85,23 @@
 - **push 通知（webhook）は採用しない（逆戻りガード）**: Google 公式はポーリングより [push 通知](https://developers.google.com/workspace/calendar/api/guides/push)を推奨するが、これは**受信用の公開 HTTPS エンドポイント**が必要。常駐デスクトップアプリには受け口がなく（＝別途サーバ/プロキシが要る＝「ローカル完結・クラウドなし」方針に反する）、このアーキテクチャでは非現実的。**ポーリング継続が妥当**。将来サーバを持つ判断をしない限り再検討しない。
 - **公式推奨のうち未実装（普及時の改善候補・任意）**: ①**間隔ジッター（±25%）**＝多数ユーザーの同時スパイク回避に公式が推奨。今は固定 60 秒の `setInterval`（`REFRESH_CLOUD_MS` に乱数を足すだけで入る・費用対効果が最も高い）。②**指数バックオフ**＝429/403 rate-limit 時に有効。今は失敗しても前回結果を保持し 60 秒後に再試行するだけ（60 秒固定なので実害は小さいが、rate-limit を踏んだら効く）。現状規模では必須ではないため未実装。導入するならジッターを先に。
 
+## 決定11: Outlook local の PowerShell 出力は「純 ASCII の JSON」で受け取る（文字化け修正・逆戻りガード）
+- **症状**: Outlook ローカル連携で、ホバー時の予定タイトル（および設定UIのカレンダー名）の日本語が文字化けする。
+- **原因**: `powershell.exe` は **stdout がリダイレクトされているときコンソール出力コードページのバイト列**を書く（日本語 Windows では **CP932**、西欧圏では CP1252）。一方 `child_process.execFile` の `encoding` 既定は **`utf8`**（`outlook-local.js` は未指定）。つまり CP932 のバイト列を UTF-8 として復号していた。実測: 「定例会議」の CP932 バイト列を UTF-8 復号すると `"�f����"` になる。`ConvertTo-Json`（Windows PowerShell 5.1）は非 ASCII をそのまま出すため、この段で壊れる。
+- **副次被害（見た目より重い）**: Shift_JIS の**2バイト目に `0x5C`（`\`）を持つ文字**（「ソ」「表」「能」等の "ダメ文字"）は、1バイト目が不正シーケンスとして U+FFFD になり **`0x5C` だけが JSON 文字列内の裸のバックスラッシュとして生き残る** → `JSON.parse` が throw して**その回の取得が丸ごと失敗**しうる（キャッシュ保持で色帯は残るが更新が止まる）。
+- **結論**: PowerShell 側で **出力を純 ASCII の JSON に固定**する（`PS_PROLOGUE` の `ConvertTo-AsciiJson`＝`ConvertTo-Json -Compress` の結果を **UTF-16 コードユニット単位で `\uXXXX` に再エスケープ**。JSON の正規表現そのものなので追加の解釈は不要、サロゲートペアもそのまま正しい JSON になる）。**ASCII はどのコードページでも同じバイト列**なので、Node 側の utf8 復号が無条件に無損失になる。制御文字も同時にエスケープするため、上のダメ文字による parse 破損も消える。
+- **なぜ `[Console]::OutputEncoding` の設定"だけ"にしないか**: それは**ホスト依存**（BOM が付く実装がある・コンソールハンドルが無い状況で setter が例外を投げうる）で、失敗したときに**静かに文字化けへ戻る**。ASCII 化はコードページに一切依存しない。`[Console]::OutputEncoding = UTF8Encoding($false)` は **stderr の診断メッセージを読めるようにするための補助**として `try/catch` 付きで併用する（失敗しても実行を止めない＝`$ErrorActionPreference='Stop'` に潰されないよう catch する）。Node 側は BOM を防御的に除去する。
+- **代替案（不採用）**: ①`execFile` を `encoding:'buffer'` にして `TextDecoder('shift_jis')` で復号 → **コードページを実行時に決め打ちできない**（端末ごとに CP932/CP1252/CP437…）ので不可。②`chcp 65001` を前置 → コンソールの状態を変える副作用があり、`[Console]::OutputEncoding` と同じくホスト依存。
+- **逆戻りガード**: 両スクリプトの出力は必ず `ConvertTo-AsciiJson` を通す。**`ConvertTo-Json` を直接パイプして出力に戻さない**。`\u` のバックスラッシュは PowerShell 側で `[char]92` から作る（PowerShell の単一引用符はエスケープを解釈しないうえ、JS のテンプレートリテラルでは `\u{` が不正エスケープになるため）。`test/outlook-local.test.js` がソーステキストでこれを担保している。
+
 ## テスト境界
-- **自動（`npm test`）**: `test/calendar.test.js`（`computeEventSegments`/`normalizeEvents`・`provider` 受け渡し）、`test/calendar-providers.test.js`（PKCE・認可URL生成・Google/MS の `mapEvents`＋`mapCalendars`）、**`test/outlook-local.test.js`（`mapOutlookJson`／`mapOutlookFolders`／`decodeLocalCalendarId`）**、`test/validate.test.js`（`appearance.calendar` 2プロバイダ＋Outlook method 検証）、`test/i18n.test.js`（キー集合一致）。
+- **自動（`npm test`）**: `test/calendar.test.js`（`computeEventSegments`/`normalizeEvents`・`provider` 受け渡し）、`test/calendar-providers.test.js`（PKCE・認可URL生成・Google/MS の `mapEvents`＋`mapCalendars`）、**`test/outlook-local.test.js`（`mapOutlookJson`／`mapOutlookFolders`／`decodeLocalCalendarId`＋決定11 の ASCII 出力＝日本語タイトルの往復と逆戻りガード）**、`test/validate.test.js`（`appearance.calendar` 2プロバイダ＋Outlook method 検証）、`test/i18n.test.js`（キー集合一致）。
 - **手動（Windows 実機）**: ブラウザ認証・ループバック・暗号保管・実 API 取得・**COM 実行（クラシック Outlook）**・**カレンダー一覧取得と複数選択の取得/描画**・プロバイダ別の色帯/ホバー描画。README チェックリスト参照。
 - **OAuth/ネットワーク無しの目視**: `DAYGLASSBAR_FAKE_EVENTS="16:00-16:30 Standup;…"`（`src/main/calendar/fake-events.js`）。
 
 ## 既知の制限
 - 新しい Outlook / Web は**完全ローカル不可**（COM 無し）→ クラウド OAuth（承認要の場合あり）。
-- ローカル Outlook は **Windows＋クラシック Outlook 起動中**が前提。GPO で「プログラムによるアクセス」を禁止していると不可。Restrict の日付書式は US ロケール想定（`MM/dd/yyyy hh:mm tt`）で他ロケールは要確認。
+- ローカル Outlook は **Windows＋クラシック Outlook 起動中**が前提。GPO で「プログラムによるアクセス」を禁止していると不可。Restrict の日付書式は US ロケール想定（`MM/dd/yyyy hh:mm tt`）で他ロケールは要確認。出力の文字コードは決定11 で解決済み（純 ASCII JSON）。
 - 表示カレンダーは選択可（決定9）。Outlook local の列挙は深さ 8 までに制限（巨大なパブリックフォルダツリーの走査停止防止）＝深い階層の共有カレンダーは出ない場合あり。
 
 ## 開発者セットアップ（一度きり）

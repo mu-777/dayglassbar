@@ -69,7 +69,7 @@
 | `settings:import` | invoke | `showOpenDialog` で選んだ JSON を読み、`validateSettings` OK なら `store.save`（→onChangeで反映）。不正/破損時は何も適用しない |
 | `diagnostics:export` | invoke | ログ＋環境情報＋現在の設定を1つの `.zip` にまとめ、`showSaveDialog` で選んだ場所へ保存（保存後にフォルダで reveal）。送信はユーザー任せ＝ネットワーク無し。秘匿情報（OAuth トークン/アカウント＝`calendar-accounts.enc`）は含めない。`{ok, filePath}` か `{ok:false, canceled/error}` |
 | `i18n:catalog` | invoke | 全言語のメッセージ catalog（`{languages, defaultLanguage, languageNames, messages}`）を返す。設定 UI が言語をライブ切替するため |
-| `displays:list` | invoke | ディスプレイ一覧（`{id, primary, width, height, x, y}` の生データ。ラベル文字列は renderer が現在言語で組み立てる） |
+| `displays:list` | invoke | ディスプレイ一覧（`{id, primary, label, x, y, width, height}` の生データ。表示用ラベル文字列は renderer が現在言語で組み立てる。`label` は保存する記述子の一部＝main と renderer が同じ基準で照合するため） |
 | `calendar:status` | invoke | 接続状態（`{accounts:[{provider,label,connected,email,error}], encryptionAvailable}`）。`error` は直近の取得/認証エラー（無ければ空文字列）。**秘匿情報は返さない**（トークンは main 内・別ストア）。設定 UI が表示に使う |
 | `calendar:connect` | invoke | 指定プロバイダの OAuth フローを実行（システムブラウザを開く）。成功時はオーバーレイを自動 ON。`{ok, accounts}` か `{ok:false, error}` |
 | `calendar:disconnect` | invoke | 指定プロバイダの接続を解除（トークン破棄＋その source の選択も破棄）。`{ok, accounts}` |
@@ -93,7 +93,11 @@
     "overrides": { "2026-06-15": {"enabled":true,"start":"10:00","end":"15:00","breaks":[]} }
   },
   "appearance": {
-    "displayId": null, "edge": "right", "thickness": 16,
+    // 選択ディスプレイは id と記述子の 2 本立て。id は再起動をまたいで変わりうる（下記
+    // 「ディスプレイ指定の保持」）ので、記述子が同じモニタを再特定する。どちらも null =
+    // プライマリ。
+    "displayId": null, "displayMatch": null, // {"label":"\\\\.\\DISPLAY2","x":1920,"y":0,"width":2560,"height":1440}
+    "edge": "right", "thickness": 16,
     "color": "#4a90d9", "opacity": 0.9,
     "track": {"enabled": true, "opacity": 0.18},
     "breakColor": "#8a8f98",
@@ -112,6 +116,48 @@
 - 保存は tmp ファイル＋rename の原子的書き込み。読み込み失敗時はデフォルトへフォールバック。
 - `mergeWithDefaults` で将来のキー追加に前方互換（既存ファイルに無いキーはデフォルト補完、配列は data 優先）。
 - 既定値は「初回起動が曜日・時刻に関係なく必ず見える変化になる」ことを狙う: 土日も ON・下地表示 ON・目盛り表示 ON・太さ 16px・辺は右。
+
+## 時刻入力（OS 標準の時計欄・日跨ぎは自動判定）
+
+- 設定の時刻はすべて **`<input type="time">`**（プラットフォーム標準の時計欄）で編集する。Windows ではスピナーとキーボード入力の標準 UI がそのまま出る。**表示形式（24時間制か AM/PM か）は OS のロケールに従う**（Chromium の仕様。アプリの表示言語設定とは独立）。以前は `H:MM` の自由入力テキストボックスで、書式ミスが検証エラーになりうる唯一の入力欄だった。
+- `<input type="time">` の値は **0:00〜23:59 の壁時計時刻しか持てない**。一方スケジュールは夜跨ぎ区間を 25:00 のような24時超表記で表す。両者は core 側の**ラップ規則**で橋渡しする（`schedule.js`）:
+  - `resolveEndMinutes`: **終了が開始と同じかそれより前なら +24h**。`22:00`〜`02:00` = 26:00。「翌日」チェックボックスを足す案より入力欄が少なく、あらゆる夜跨ぎを表現できる（区間は 24 時間未満という既存の制約があるので曖昧さがない）。
+  - `resolveBreakMinutes`: 休憩の時刻は**その日の開始以降で最初に来る側**に解決する。`22:00`〜`02:00` の日の `00:30`〜`01:00` は 24:30〜25:00 になる。
+  - 24時超表記は `parseTimeToMinutes` がこれまでどおり受け付け、ラップ規則はそれを素通しする＝**既存の settings.json・手書き・インポートしたファイルの意味は変わらない**。設定 UI は読み込み時に壁時計へ畳んで表示し、保存で書き戻す（`25:00` → `01:00` と表示 → 保存後も 25:00 相当）。
+- `validateSettings` は**同じ 2 つの関数**を通してから範囲・重なりを見る（二重実装を作らない）。これにより「終了は開始より後」エラー（旧 `v.endAfterStart`）は成立しなくなり、削除した。
+- **逆戻りガード**: 時刻入力を自由テキストに戻さない。ラップ規則をレンダラー側に写経して二重管理にしない（レンダラーは壁時計の文字列を渡すだけ）。
+
+## 期間と休憩の分離（設定 UI）
+
+曜日行は「有効」チェックのあとに **`期間`（開始〜終了）と `休憩` が別々の枠（`.time-group`）**として並ぶ。以前は同じ見た目の時刻ボックスが 4 つ以上一列に並び、区間の終了と最初の休憩の開始が隣接して 1 つのレンジに見えていた。枠にはラベルが付き、休憩の追加/削除ボタンは休憩枠の中に入る。`.when[hidden]` の CSS も併せて追加した（`display:flex` がクラス指定なので UA の `[hidden]` を上書きしてしまい、「有効」を外しても時刻欄が消えていなかった）。
+
+## 「表示」の行組みと最小横幅（設定 UI）
+
+- **1行 = 1つの `.grid`**。「表示」は ①ディスプレイ/辺/太さ ②ホバー判定/展開時の太さ ③色/不透明度/休憩の色 ④下地を表示/下地の濃さ ⑤目盛りを表示/目盛り間隔 の5行に分けて置く。1つの流し込みグリッドだと幅によって意味の対になる項目（下地のON/OFFと濃さ等）が別の行に割れてしまうため。各行とも `repeat(auto-fill, minmax(220px, 1fr))` の**同じトラック定義**なので、項目が2つの行でも列は上下で揃う（`auto-fit` ではなく `auto-fill`＝空トラックを残すのが効いている）。行間は `.grid + .grid` の `margin-top` で、元の行 gap と同じ 12px。
+- **ホバー判定・展開時の太さは「動作」から「表示」へ移した**。どちらも「展開したときにバーがどう見えるか」の話なので、太さや辺の隣にあるのが自然。**保存先は `behavior.hover` のまま**＝UI の移動であってスキーマ変更ではない（`collect()` は id で拾っているので DOM を動かすだけで済む）。**逆戻りガード**: 見た目に合わせて設定スキーマを `appearance` 側へ移さない（既存の settings.json が読めなくなる）。
+- **最小横幅は①の行に固定される**。`minWidth: 780`（`src/main/settings-window.js`）は「①が3列を保てる最小幅」から決めてある: グリッドが3トラックを取るのに必要な**コンテンツ幅は 748px**（実測。`minmax(220px)`×3＋16px gap×2＋`main` の左右パディング＋スクロールバー）で、残りはウィンドウ枠のぶんの余裕（Windows で約16px、素の X サーバでは 0）。**`minmax` の値・gap・`main` のパディングを変えたら測り直すこと**（`document.querySelector` で該当グリッドの `gridTemplateColumns` のトラック数を数えながら幅を振れば出る）。
+
+## 目盛りは時計に合わせる
+
+`computeTicks` は**区間の開始からの N 分**ではなく**その区間の 0:00 起点**で目盛りを置く。既定の 60 分なら、区間が 9:30 開始でも線は 10:00, 11:00 … と**毎正時**に出る（「1時間が経った」ではなく「何時ちょうど」を読める）。位置は `msAt`（カレンダー演算）で作るので、区間内に DST があっても壁時計側に追従する。区間は 24 時間未満・開始は 24:00 未満なので、48 時間ぶんのステップを走査すれば必ず足りる。
+
+## ディスプレイ指定の保持（id は不安定・記述子で再特定）
+
+- **問題**: プライマリ以外のディスプレイを指定しても、再起動のたびにプライマリへ戻っていた。原因は `screen` が返す**ディスプレイ id が再起動をまたいで安定しないこと**（Windows ではモニタの列挙やドライバ更新・配置変更で変わりうる）。保存済み id が解決しなくなると、バーはプライマリへフォールバックし、設定画面のドロップダウンも「自動」に落ちる＝ユーザーが毎回選び直すことになる。
+- **対策**: id と一緒に**記述子**（`label` と bounds）を `appearance.displayMatch` に保存し、core の `findDisplay`（`src/core/display.js`）で照合する。順に ① id 一致 ② label+bounds ③ bounds ④ label で探し、**一致が 1 つに絞れるときだけ**採用する（同型モニタ 2 枚で当てずっぽうに選ばない）。
+- **id の再アンカー**: main は起動直後に `healDisplayChoice()` で見つかったディスプレイの id を書き戻す。記述子を持たない**既存の設定にも記述子を後付け**するので、アップグレードした時点から効く。ディスプレイが本当に外れているときは**何も書き換えない**（再接続で元に戻る＝spec 4.2 の挙動を維持）。設定画面側は照合をやり直さない＝開く頃には id が正しくなっている。
+- **逆戻りガード**: `displayId` だけを見て `getAllDisplays().find(...)` に戻さない。
+
+## バーの一時的な非表示（トレイ）
+
+- トレイメニューの**チェック項目**「一時的に非表示（翌日に復帰）」。押すとバーが消え、もう一度押すと戻る。押さなくても**翌日の 0:00 に自動復帰**する（`nextLocalMidnightMs`）。画面共有やプレゼンのための機能で、**戻し忘れを構造的に防ぐ**ために期限付きにしてある。
+- 状態は「期限の epoch ms」1 つ。`isTemporarilyHidden()` は**毎回時計と比較する**（不変条件 #1）ので、期限までのタイマを持たない＝スリープが日付をまたいでも復帰する。判定は `bar-window.js` の `pushState()` 冒頭 1 か所（毎秒走る）に置き、期限切れの瞬間に自力で戻る。
+- トレイのチェックは `onHiddenChanged` コールバックでメニューを組み直して同期する（タイマ不要）。
+- 保存先は `settings.json` ではなく `userData/hidden-until`（`onboarded` センチネルと同じ理由＝端末ごとの一時状態でありポータブルな設定ではない）。**エクスポートに含まれない**。同じ日のうちに再起動しても非表示のまま、日付が変わっていれば起動時に破棄する。
+- **メニューの並び（実害から得た教訓・逆戻りガード）**: 最初この項目を**先頭のクリック項目**、つまり従来「設定...」があった位置に置いたところ、設定を開こうとしたユーザーがこれを踏んでバーを失った。**隠れたバーは壊れたバーと区別がつかない**（全ディスプレイから消え、再起動しても戻らない）ため、被害が大きい。現在は `設定...` を先頭のクリック項目に戻し、**非表示のトグルはその下にセパレータで隔離**してある。**この項目を先頭へ戻さない。**
+- **非表示中はそう言う**: トレイの先頭行を `tray.hiddenNow`（「非表示中（翌日に復帰）— 下のチェックを外すと戻ります」）に差し替え、ツールチップも `tray.tooltipHidden` に切り替える。通常どおり「今日: 0:00〜23:59」を出したままにすると、画面には何も無いのにメニューだけ正常に見え、これが「バグに見える」状態そのものだった。起動時にも `starting with the bar temporarily hidden` をログに残す。
+- **設定を適用したら非表示は解除する**: `settings:save`／`settings:import`／`settings:reset` が成功したら `clearTemporaryHide()` で非表示を解いてバーを出す。「保存して適用」は**結果を見せる**操作なので、押した先でバーが出てこないと設定を延々といじる羽目になる。事故で隠してしまった人が原因を探して設定画面を開いたときの**脱出口**にもなる（上のメニュー配置の教訓と対になる）。ステータス文言は増やさない＝**バーが画面に戻ること自体がフィードバック**。トレイのチェックは `onHiddenChanged` 経由で外れる。
+- **#4「促すが急かさない」との整合**: 通知もカウントダウンも出さない（トレイの表示とツールチップまで）。
 
 ## 設定のエクスポート/インポート（ローカルファイルのみ）
 
@@ -158,7 +204,8 @@
 - **スリープ復帰で即時取得**: `powerMonitor` の `resume`（`src/main/index.js`）で `calendar.refresh()`（cloud+local 両方を即取得）。スリープ中はタイマが止まり予定が古くなるため、次の間隔を待たず復帰直後に最新化する（時刻計算自体は #1 で常に正しい）。
 - **何を「予定」とみなすか（spec §10 の決定化）**: read-only スコープ（Google `calendar.events.readonly`＋一覧取得用 `calendar.calendarlist.readonly` / Graph `Calendars.Read`）。**終日予定・辞退済み・"空き(free/transparent)" 表示は除外**。判定とフィルタは core `normalizeEvents`（純粋・テスト対象）、JSON→共通形式は各プロバイダの `mapEvents`（純粋・テスト対象）。
 - **描画は休憩と同じ「残り側のみ」**: 過ぎた予定は経過分と一緒に消える。色帯は fill の上・目盛りの下に描き、ホバー時のみタイトルを帯幅にクリップ（省略記号）して重ねる（`src/renderer/bar/bar.js`）。色は一定・点滅や危機色なし（不変条件 #4）。
-- **テスト可能な切り分け**: PKCE・認可 URL 生成・各プロバイダの `mapEvents`/**`mapCalendars`**・**`mapOutlookJson`/`mapOutlookFolders`/`decodeLocalCalendarId`**・`computeEventSegments`/`normalizeEvents`（`provider` 受け渡し）はユニットテスト（`test/calendar*.test.js`/`test/outlook-local.test.js`）。**ブラウザ起動・ループバック・暗号保管・実 API・COM 実行・カレンダー一覧取得と複数選択の取得は Windows 実機での手動確認**（検証方針どおり）。
+- **Outlook local の出力は純 ASCII の JSON**: `powershell.exe` は stdout がリダイレクトされているとコンソール出力コードページ（日本語 Windows は CP932）で書くが、`child_process.execFile` の既定 `encoding` は `utf8` ＝ そのままでは**日本語のタイトル/カレンダー名が文字化け**し、Shift_JIS の2バイト目 `0x5C` を持つ「ダメ文字」（ソ/表/能 等）では裸のバックスラッシュが残って `JSON.parse` ごと落ちうる。対策は PowerShell 側の `ConvertTo-AsciiJson`（`PS_PROLOGUE`）で **`ConvertTo-Json -Compress` の結果を UTF-16 コードユニット単位で `\uXXXX` に再エスケープ**し、出力バイト列をコードページ非依存にすること（`[Console]::OutputEncoding` の UTF-8 化は stderr 診断向けの補助で `try/catch` 付き）。**逆戻りガード**: `ConvertTo-Json` を直接パイプして出力に戻さない（`test/outlook-local.test.js` がソーステキストで担保）。経緯・代替案は `docs/calendar-integration.md` 決定11。
+- **テスト可能な切り分け**: PKCE・認可 URL 生成・各プロバイダの `mapEvents`/**`mapCalendars`**・**`mapOutlookJson`/`mapOutlookFolders`/`decodeLocalCalendarId`**・`computeEventSegments`/`normalizeEvents`（`provider` 受け渡し）はユニットテスト（`test/calendar*.test.js`/`test/outlook-local.test.js`＝後者は ASCII 出力の往復と逆戻りガードも含む）。**ブラウザ起動・ループバック・暗号保管・実 API・COM 実行・カレンダー一覧取得と複数選択の取得は Windows 実機での手動確認**（検証方針どおり）。
 - **新 Outlook / Web の制約**: COM が無く、データはクラウド側のため**完全ローカル読み取りの正規手段は無い**＝クラウド OAuth（管理者承認が要る場合あり）になる。ローカル Outlook は **Windows＋クラシック Outlook 起動中**が前提（GPO の「プログラムによるアクセス」禁止で不可の場合あり）。
 - **開発用フェイク源**: `DAYGLASSBAR_FAKE_EVENTS="16:00-16:30 Standup;…"`（時刻シミュレーションと同系統）で OAuth/ネットワーク無しに色帯/ホバーを目視できる（`src/main/calendar/fake-events.js`）。
 - **開発者の一度きりの準備**: Google Cloud で「デスクトップアプリ」型 client_id、Azure で「パブリッククライアント」アプリ（ループバックリダイレクト・`Calendars.Read`）を登録。値は `src/main/calendar/config.js` に集約し、**gitignore 済みの `client-ids.local.json`**（`client-ids.local.example.json` をコピー）か env（`DAYGLASSBAR_GOOGLE_CLIENT_ID`/`DAYGLASSBAR_MS_CLIENT_ID`・優先）で渡す。client_id は秘密ではないが自分のプロジェクト識別子なので実値はリポジトリに置かない。未設定なら接続時に「client_id not configured」を返す。
@@ -167,7 +214,7 @@
 
 | 層 | 場所 | 責務 | Electron依存 |
 | --- | --- | --- | --- |
-| core | `src/core/` | 時間モデル・検証・ジオメトリ・時刻源・i18n・カレンダー幾何(`calendar.js`)・バージョン比較(`version.js`) | **なし（テスト対象）** |
+| core | `src/core/` | 時間モデル・検証・ジオメトリ・時刻源・i18n・カレンダー幾何(`calendar.js`)・ディスプレイ照合(`display.js`)・バージョン比較(`version.js`) | **なし（テスト対象）** |
 | main | `src/main/` | ウィンドウ・トレイ・IPC・永続化・自動起動・カレンダー連携(`calendar/`) | あり |
 | preload | `src/preload/` | contextBridge（CJS） | あり |
 | renderer | `src/renderer/` | 描画・設定UI（純描画/DOM） | なし |

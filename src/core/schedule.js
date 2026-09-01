@@ -40,17 +40,37 @@ export function addDays(date, days) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() + days);
 }
 
+// An end at or before the start means the interval runs past midnight: "22:00-02:00"
+// resolves to 22:00 → 26:00 (= 02:00 the next day). This is what lets the settings UI use
+// plain clock pickers (<input type="time">, 0:00-23:59) with no "next day" checkbox — the
+// wrap is inferred. Over-24h notation ("26:00") still parses and passes through untouched,
+// so hand-written / imported / older settings.json files keep their meaning.
+export function resolveEndMinutes(startMin, endMin) {
+  if (startMin == null || endMin == null) return endMin;
+  return endMin <= startMin ? endMin + 1440 : endMin;
+}
+
+// A break's clock time resolves to its first occurrence at or after the day's start, so a
+// break inside an overnight interval ("00:30-01:00" within 22:00-02:00) lands on the next
+// calendar day without the user typing 24:30. Within an ordinary daytime interval nothing
+// moves. A reversed break (end before start on the same day) still comes out reversed so
+// validation can flag it (v.breakOrder) instead of silently "fixing" it.
+export function resolveBreakMinutes(dayStartMin, startMin, endMin) {
+  const shift = (m) => (m != null && dayStartMin != null && m < dayStartMin ? m + 1440 : m);
+  return { startMin: shift(startMin), endMin: shift(endMin) };
+}
+
 // raw day record → {enabled:false} | {enabled:true, startMin, endMin, breaks:[{startMin,endMin}]}
 export function normalizeDayRecord(rec) {
   if (!rec || !rec.enabled) return { enabled: false };
+  const startMin = parseTimeToMinutes(rec.start);
+  const endMin = resolveEndMinutes(startMin, parseTimeToMinutes(rec.end));
   return {
     enabled: true,
-    startMin: parseTimeToMinutes(rec.start),
-    endMin: parseTimeToMinutes(rec.end),
-    breaks: (rec.breaks || []).map((b) => ({
-      startMin: parseTimeToMinutes(b.start),
-      endMin: parseTimeToMinutes(b.end),
-    })),
+    startMin,
+    endMin,
+    breaks: (rec.breaks || []).map((b) =>
+      resolveBreakMinutes(startMin, parseTimeToMinutes(b.start), parseTimeToMinutes(b.end))),
   };
 }
 
@@ -201,16 +221,36 @@ export function computeSegments(interval, nowMs) {
   return segments;
 }
 
-// Interior tick positions (fractions), every `intervalMinutes` from the start.
+// Interior tick positions (fractions), every `intervalMinutes`.
+//
+// Ticks are anchored to the CLOCK (the interval's own midnight), not to the interval start:
+// with the default 60-minute spacing they land exactly on 1:00, 2:00, ... even when the day
+// starts at 9:30. That is what makes a tick readable as "an hour boundary" rather than "N
+// minutes since I started". Positions are built with msAt (calendar arithmetic), so a DST
+// jump inside the interval shifts them with the wall clock instead of drifting an hour.
 export function computeTicks(interval, intervalMinutes) {
   if (!intervalMinutes || intervalMinutes <= 0) return [];
   const span = interval.endMs - interval.startMs;
-  const step = intervalMinutes * 60000;
+  if (!(span > 0)) return [];
+  const anchorDate = parseDateKey(interval.anchorKey);
+  const at = (minutes) =>
+    anchorDate ? msAt(anchorDate, minutes) : interval.anchorMidnightMs + minutes * 60000;
   const ticks = [];
-  for (let t = interval.startMs + step; t < interval.endMs; t += step) {
-    ticks.push((t - interval.startMs) / span);
+  // Intervals are under 24h and start before 24:00, so 48h of steps always covers the span.
+  for (let m = intervalMinutes; m <= 48 * 60; m += intervalMinutes) {
+    const ms = at(m);
+    if (ms >= interval.endMs) break;
+    if (ms > interval.startMs) ticks.push((ms - interval.startMs) / span);
   }
   return ticks;
+}
+
+// Start of the next local calendar day. Built from the date parts rather than now + 24h so
+// it stays correct across a DST change. Used by the tray's temporary hide, which expires
+// "tomorrow" (src/main/index.js).
+export function nextLocalMidnightMs(nowMs) {
+  const d = new Date(nowMs);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 0, 0).getTime();
 }
 
 export function formatDurationMs(ms) {

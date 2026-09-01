@@ -20,6 +20,9 @@
   let DEFAULT_LANG = 'en';
   let LANG = 'en';
   let displays = [];
+  // Descriptor of the saved display, kept so a currently-disconnected monitor stays selectable
+  // (and therefore survives a Save) instead of quietly collapsing to "Primary (auto)".
+  let storedDisplayMatch = null;
   let calendarState = { accounts: [], encryptionAvailable: true };
   let appVersion = '';
   // D-7: unsaved-changes indicator — a small dot prefixed to the window title. Cleared on
@@ -73,13 +76,27 @@
   }
 
   // ---- day editor (shared by weekly rows and overrides) ----
+  // Times are edited with <input type="time"> — the platform's own clock field, so on Windows
+  // the user gets the standard spinner/keyboard entry (and the OS's 24h or AM/PM presentation)
+  // instead of typing "H:MM" into a free-text box. Its value is always wall clock 00:00–23:59,
+  // which is all the schedule needs: core infers a past-midnight interval from an end at or
+  // before the start (schedule.js resolveEndMinutes / resolveBreakMinutes), so there is no
+  // "next day" checkbox and no over-24h notation to teach. Stored over-24h values (older or
+  // imported settings.json) still load — they are shown as the clock time they mean.
+  function toClockValue(str) {
+    const m = /^(\d{1,2}):([0-5]\d)$/.exec(String(str ?? '').trim());
+    if (!m) return '';
+    const total = (Number(m[1]) * 60 + Number(m[2])) % 1440;
+    return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+  }
+
   function breakRow(b = { start: '12:00', end: '13:00' }) {
     const row = document.createElement('span');
     row.className = 'break-row';
     row.innerHTML =
-      `<input class="b-start time" value="${esc(b.start)}" placeholder="12:00" />` +
+      `<input type="time" class="b-start time" value="${esc(toClockValue(b.start))}" />` +
       `<span class="tilde">${esc(t('sep.range'))}</span>` +
-      `<input class="b-end time" value="${esc(b.end)}" placeholder="13:00" />` +
+      `<input type="time" class="b-end time" value="${esc(toClockValue(b.end))}" />` +
       `<button type="button" class="remove ghost" title="${esc(t('title.removeBreak'))}">×</button>`;
     row.querySelector('.remove').addEventListener('click', () => { row.remove(); setDirty(true); });
     return row;
@@ -88,14 +105,23 @@
   function dayEditor(rec = { enabled: false }) {
     const el = document.createElement('span');
     el.className = 'day-editor';
+    // The interval and its breaks are two separate, labelled groups: they used to run together
+    // in one undifferentiated row of identical boxes, where the day's own end and the first
+    // break's start sat side by side and read as one range.
     el.innerHTML =
       `<label class="enabled"><input type="checkbox" class="d-enabled" ${rec.enabled ? 'checked' : ''} /><span>${esc(t('label.enabled'))}</span></label>` +
       `<span class="when" ${rec.enabled ? '' : 'hidden'}>` +
-      `<input class="d-start time" value="${esc(rec.start ?? '9:00')}" placeholder="9:00" />` +
+      `<span class="time-group span-group">` +
+      `<span class="group-label">${esc(t('label.span'))}</span>` +
+      `<input type="time" class="d-start time" value="${esc(toClockValue(rec.start ?? '9:00'))}" />` +
       `<span class="tilde">${esc(t('sep.range'))}</span>` +
-      `<input class="d-end time" value="${esc(rec.end ?? '17:00')}" placeholder="17:00" />` +
+      `<input type="time" class="d-end time" value="${esc(toClockValue(rec.end ?? '17:00'))}" />` +
+      `</span>` +
+      `<span class="time-group breaks-group">` +
+      `<span class="group-label">${esc(t('label.breaks'))}</span>` +
       `<span class="breaks"></span>` +
       `<button type="button" class="add-break ghost">${esc(t('btn.addBreak'))}</button>` +
+      `</span>` +
       `</span>`;
     const when = el.querySelector('.when');
     const breaks = el.querySelector('.breaks');
@@ -209,7 +235,8 @@
       language: $('#f-language').value,
       schedule: { weekly, overrides },
       appearance: {
-        displayId: $('#f-display').value === '' ? null : Number($('#f-display').value),
+        displayId: selectedDisplayId(),
+        displayMatch: selectedDisplayMatch(),
         edge: $('#f-edge').value,
         thickness: Number($('#f-thickness').value),
         color: $('#f-color').value,
@@ -452,6 +479,24 @@
     renderCalendarConnections();
   }
 
+  // The chosen display is saved as an id *and* a descriptor, because the id is not stable
+  // across restarts (see src/core/display.js): main re-finds the monitor by descriptor and
+  // heals the id at startup, so by the time this form opens the id resolves again.
+  function selectedDisplayId() {
+    const v = $('#f-display').value;
+    return v === '' ? null : Number(v);
+  }
+
+  function selectedDisplayMatch() {
+    const id = selectedDisplayId();
+    if (id == null) return null;
+    const d = displays.find((x) => x.id === id);
+    // Not in the live list = the saved display is unplugged right now; keep its descriptor as
+    // it stands so reconnecting restores it.
+    if (!d) return storedDisplayMatch;
+    return { label: d.label || '', x: d.x, y: d.y, width: d.width, height: d.height };
+  }
+
   function buildDisplaySelect(selectedId) {
     const sel = $('#f-display');
     sel.textContent = '';
@@ -466,8 +511,19 @@
       opt.textContent = `${d.width}×${d.height} (${d.x}, ${d.y})${suffix}`;
       sel.appendChild(opt);
     }
+    // A configured display that isn't attached right now gets an option of its own, described
+    // from the saved descriptor. Collapsing to "auto" would look tidy but the next Save would
+    // then throw the choice away — the bar would never return to that monitor on reconnect.
+    if (selectedId != null && !displays.some((d) => d.id === selectedId)) {
+      const opt = document.createElement('option');
+      opt.value = String(selectedId);
+      const m = storedDisplayMatch;
+      const geometry = m ? `${m.width}×${m.height} (${m.x}, ${m.y})` : String(selectedId);
+      opt.textContent = `${geometry}${t('displays.disconnectedSuffix')}`;
+      sel.appendChild(opt);
+    }
     sel.value = selectedId == null ? '' : String(selectedId);
-    if (sel.selectedIndex < 0) sel.value = ''; // configured display is detached → auto
+    if (sel.selectedIndex < 0) sel.value = ''; // nothing to select at all → auto
   }
 
   // Render the whole form from a settings object in the current LANG.
@@ -478,6 +534,7 @@
     buildLanguageSelect();
 
     const ap = settings.appearance;
+    storedDisplayMatch = ap.displayMatch || null;
     buildDisplaySelect(ap.displayId);
     $('#f-edge').value = ap.edge;
     $('#f-thickness').value = ap.thickness;

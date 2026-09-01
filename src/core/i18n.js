@@ -39,7 +39,7 @@ export const MESSAGES = {
     'settings.general': 'General',
     'settings.schedule': 'Schedule',
     'settings.scheduleNote':
-      'End times past midnight use over-24h notation like <code>25:00</code> (e.g. 13:00–25:00 = until 1:00 the next day; the interval belongs to its start date). Breaks show in gray on the remaining side and disappear together with elapsed time once past.',
+      'Pick times with the clock fields. An end at or before the start means the interval runs past midnight (22:00–02:00 = until 2:00 the next day; it belongs to its start date), and a break lands on whichever side of midnight comes first after the start. Over-24h notation like <code>25:00</code> still works in imported files. Breaks show in gray on the remaining side and disappear together with elapsed time once past.',
     'settings.overrides': 'Date overrides',
     'settings.overridesNote':
       'Listed dates take priority over the weekly defaults. To make a day off, uncheck "Enabled". Past dates are removed automatically.',
@@ -58,6 +58,7 @@ export const MESSAGES = {
     'field.trackOpacity': 'Track opacity',
     'field.ticks': 'Show ticks',
     'field.ticksInterval': 'Tick interval (min)',
+    'field.ticksIntervalHint': 'Ticks are aligned to the clock, so 60 puts a line on every full hour even when the day starts at 9:30.',
     'field.autoLaunch': 'Launch at login',
     'field.dwell': 'Hover delay (ms)',
     'field.expanded': 'Expanded thickness (px)',
@@ -99,6 +100,8 @@ export const MESSAGES = {
     'edge.right': 'Right',
 
     'label.enabled': 'Enabled',
+    'label.span': 'Hours',
+    'label.breaks': 'Breaks',
     'btn.addBreak': '+ Break',
     'btn.copyToWeekdays': '→ weekdays',
     'btn.copyToAll': '→ all days',
@@ -114,6 +117,7 @@ export const MESSAGES = {
     'title.removeOverride': 'Remove this override',
     'option.displayAuto': 'Primary (auto)',
     'displays.primarySuffix': ' · Primary',
+    'displays.disconnectedSuffix': ' · not connected',
     'sep.range': '–',
     'confirm.reset': 'Reset all settings to their defaults? Calendar connections (sign-ins) are kept.',
 
@@ -154,6 +158,10 @@ export const MESSAGES = {
     'bar.remainingFmt': '{v} left',
     'bar.nextFmt': 'Next {v}',
 
+    'tray.hide': 'Hide until tomorrow',
+    'tray.hiddenNow': 'Hidden until tomorrow — click below to bring it back',
+    'tray.tooltipHidden': 'DayGlassBar — hidden until tomorrow (right-click to bring it back)',
+    'tray.hideHint': 'Hide the bar for the rest of today. Click again to bring it back; it returns on its own tomorrow.',
     'tray.settings': 'Settings…',
     'tray.quit': 'Quit',
     'tray.today': 'Today',
@@ -174,9 +182,9 @@ export const MESSAGES = {
 
     'v.scheduleMissing': 'Schedule is missing.',
     'v.startFormat': '{label}: invalid start time (e.g. 9:00).',
-    'v.endFormat': '{label}: invalid end time (e.g. 17:00; for overnight use over-24h like 25:00).',
+    'v.endFormat': '{label}: invalid end time (e.g. 17:00).',
     'v.startBefore24': '{label}: start must be before 24:00.',
-    'v.endAfterStart': '{label}: end must be after start (for overnight use over-24h like 25:00).',
+    'v.display': 'Invalid display setting.',
     'v.spanUnder24': '{label}: the interval must be under 24 hours.',
     'v.breakFormat': '{label}: break {index} has an invalid time format.',
     'v.breakOrder': '{label}: break {index} start must be before its end.',
@@ -211,7 +219,7 @@ export const MESSAGES = {
     'settings.general': '全般',
     'settings.schedule': 'スケジュール',
     'settings.scheduleNote':
-      '日跨ぎは終了を <code>25:00</code> のように24時超で表記します（例: 13:00〜25:00 = 翌1:00まで。区間はその開始日に帰属）。休憩は「残り側」にグレーで表示され、過ぎた休憩は経過分と一緒に消えます。',
+      '時刻は時計の入力欄から選びます。終了が開始と同じかそれより前なら日跨ぎとして扱います（22:00〜02:00 = 翌2:00まで。区間はその開始日に帰属）。休憩も開始以降で最初に来る側に自動で割り当てられます。<code>25:00</code> のような24時超表記もインポートしたファイルではそのまま使えます。休憩は「残り側」にグレーで表示され、過ぎた休憩は経過分と一緒に消えます。',
     'settings.overrides': '特定日の上書き',
     'settings.overridesNote':
       '指定した日は曜日設定より優先されます。休みにしたい日は「有効」を外してください。過ぎた日付は自動的に削除されます。',
@@ -230,6 +238,7 @@ export const MESSAGES = {
     'field.trackOpacity': '下地の濃さ',
     'field.ticks': '目盛りを表示',
     'field.ticksInterval': '目盛り間隔（分）',
+    'field.ticksIntervalHint': '目盛りは時計に合わせて引かれます。60 にすれば開始が 9:30 でも毎正時に線が出ます。',
     'field.autoLaunch': 'ログイン時に自動起動',
     'field.dwell': 'ホバー判定（ms）',
     'field.expanded': '展開時の太さ（px）',
@@ -271,6 +280,8 @@ export const MESSAGES = {
     'edge.right': '右',
 
     'label.enabled': '有効',
+    'label.span': '期間',
+    'label.breaks': '休憩',
     'btn.addBreak': '+ 休憩',
     'btn.copyToWeekdays': '→ 平日',
     'btn.copyToAll': '→ 全曜日',
@@ -286,6 +297,7 @@ export const MESSAGES = {
     'title.removeOverride': 'この上書きを削除',
     'option.displayAuto': 'プライマリ（自動）',
     'displays.primarySuffix': '・プライマリ',
+    'displays.disconnectedSuffix': '・未接続',
     'sep.range': '〜',
     'confirm.reset': 'すべての設定を初期値に戻しますか？カレンダーの接続（サインイン）は保持されます。',
 
@@ -326,6 +338,10 @@ export const MESSAGES = {
     'bar.remainingFmt': '残り {v}',
     'bar.nextFmt': '次は {v}',
 
+    'tray.hide': '一時的に非表示（翌日に復帰）',
+    'tray.hiddenNow': '非表示中（翌日に復帰）— 下のチェックを外すと戻ります',
+    'tray.tooltipHidden': 'DayGlassBar — 一時的に非表示中（右クリックで復帰）',
+    'tray.hideHint': '今日いっぱいバーを隠します。もう一度押せばすぐ戻り、押さなくても翌日には自動で復帰します。',
     'tray.settings': '設定...',
     'tray.quit': '終了',
     'tray.today': '今日',
@@ -346,9 +362,9 @@ export const MESSAGES = {
 
     'v.scheduleMissing': 'スケジュールがありません',
     'v.startFormat': '{label}: 開始時刻の形式が不正です（例: 9:00）',
-    'v.endFormat': '{label}: 終了時刻の形式が不正です（例: 17:00。日跨ぎは 25:00 のように24時超表記）',
+    'v.endFormat': '{label}: 終了時刻の形式が不正です（例: 17:00）',
     'v.startBefore24': '{label}: 開始は 24:00 未満で指定してください',
-    'v.endAfterStart': '{label}: 終了は開始より後にしてください（日跨ぎは 25:00 のように24時超表記）',
+    'v.display': 'ディスプレイの設定が不正です',
     'v.spanUnder24': '{label}: 区間は24時間未満にしてください',
     'v.breakFormat': '{label}: 休憩{index}の時刻形式が不正です',
     'v.breakOrder': '{label}: 休憩{index}は開始<終了にしてください',
@@ -383,7 +399,7 @@ export const MESSAGES = {
     'settings.general': '常规',
     'settings.schedule': '日程',
     'settings.scheduleNote':
-      '跨夜的结束时间使用超过24小时的表示法，如 <code>25:00</code>（例：13:00–25:00 = 到次日 1:00；区间归属于其开始日期）。休息以灰色显示在“剩余”一侧，已过去的休息会随已用时间一起消失。',
+      '请用时钟输入框选择时间。结束时间等于或早于开始时间即视为跨夜（22:00–02:00 = 到次日 2:00；区间归属于其开始日期），休息也会自动落在开始之后最先到来的一侧。导入的文件仍可使用 <code>25:00</code> 这样的超24小时表示法。休息以灰色显示在“剩余”一侧，已过去的休息会随已用时间一起消失。',
     'settings.overrides': '特定日期覆盖',
     'settings.overridesNote':
       '指定的日期优先于每周设置。要设为休息日，请取消勾选“启用”。已过去的日期会自动删除。',
@@ -402,6 +418,7 @@ export const MESSAGES = {
     'field.trackOpacity': '底纹浓度',
     'field.ticks': '显示刻度',
     'field.ticksInterval': '刻度间隔（分钟）',
+    'field.ticksIntervalHint': '刻度按时钟对齐，设为 60 时即使从 9:30 开始也会在每个整点画线。',
     'field.autoLaunch': '登录时自动启动',
     'field.dwell': '悬停判定（ms）',
     'field.expanded': '展开时粗细（px）',
@@ -443,6 +460,8 @@ export const MESSAGES = {
     'edge.right': '右',
 
     'label.enabled': '启用',
+    'label.span': '时段',
+    'label.breaks': '休息',
     'btn.addBreak': '+ 休息',
     'btn.copyToWeekdays': '→ 工作日',
     'btn.copyToAll': '→ 每天',
@@ -458,6 +477,7 @@ export const MESSAGES = {
     'title.removeOverride': '删除此覆盖',
     'option.displayAuto': '主显示器（自动）',
     'displays.primarySuffix': ' · 主显示器',
+    'displays.disconnectedSuffix': ' · 未连接',
     'sep.range': '–',
     'confirm.reset': '将所有设置恢复为默认值？日历连接（登录）将保留。',
 
@@ -498,6 +518,10 @@ export const MESSAGES = {
     'bar.remainingFmt': '剩余 {v}',
     'bar.nextFmt': '下次 {v}',
 
+    'tray.hide': '临时隐藏（次日恢复）',
+    'tray.hiddenNow': '已隐藏（次日恢复）— 取消下方勾选即可恢复',
+    'tray.tooltipHidden': 'DayGlassBar — 临时隐藏中（右键恢复）',
+    'tray.hideHint': '在今天剩余时间内隐藏进度条。再次点击即可恢复，不点击也会在次日自动恢复。',
     'tray.settings': '设置…',
     'tray.quit': '退出',
     'tray.today': '今天',
@@ -518,9 +542,9 @@ export const MESSAGES = {
 
     'v.scheduleMissing': '缺少日程。',
     'v.startFormat': '{label}：开始时间格式不正确（例：9:00）。',
-    'v.endFormat': '{label}：结束时间格式不正确（例：17:00；跨夜请用 25:00 这样的超24小时表示）。',
+    'v.endFormat': '{label}：结束时间格式不正确（例：17:00）。',
     'v.startBefore24': '{label}：开始须早于 24:00。',
-    'v.endAfterStart': '{label}：结束须晚于开始（跨夜请用 25:00 这样的超24小时表示）。',
+    'v.display': '显示器设置不正确。',
     'v.spanUnder24': '{label}：区间须小于 24 小时。',
     'v.breakFormat': '{label}：休息{index}的时间格式不正确。',
     'v.breakOrder': '{label}：休息{index}的开始须早于结束。',

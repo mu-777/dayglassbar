@@ -9,6 +9,9 @@ import {
   getNextInterval,
   prunePastOverrides,
   getBarState,
+  nextLocalMidnightMs,
+  resolveEndMinutes,
+  resolveBreakMinutes,
 } from '../src/core/schedule.js';
 
 const day = (start, end, breaks = []) => ({ enabled: true, start, end, breaks });
@@ -266,4 +269,60 @@ test('ticks: hourly interior ticks', () => {
   const st = getBarState(schedule, MON(9, 30), { tickIntervalMinutes: 60 });
   assert.equal(st.ticks.length, 7); // 10:00 .. 16:00
   assert.ok(Math.abs(st.ticks[0] - 1 / 8) < 1e-9);
+});
+
+// --- overnight without over-24h notation (the settings UI's clock fields) ---
+
+test('resolveEndMinutes: an end at or before the start wraps to the next day', () => {
+  assert.equal(resolveEndMinutes(9 * 60, 17 * 60), 17 * 60); // ordinary daytime span, untouched
+  assert.equal(resolveEndMinutes(22 * 60, 2 * 60), 26 * 60); // 22:00 → 02:00 next day
+  assert.equal(resolveEndMinutes(13 * 60, 25 * 60), 25 * 60); // already over-24h: passes through
+  assert.equal(resolveEndMinutes(9 * 60, 9 * 60), 33 * 60); // equal = a full day later (rejected by validate)
+});
+
+test('resolveBreakMinutes: a break resolves to its first occurrence after the day start', () => {
+  assert.deepEqual(resolveBreakMinutes(9 * 60, 12 * 60, 13 * 60), { startMin: 720, endMin: 780 });
+  // 22:00-start day: 00:30–01:00 belongs to the next calendar day (24:30–25:00).
+  assert.deepEqual(resolveBreakMinutes(22 * 60, 30, 60), { startMin: 1470, endMin: 1500 });
+  // A break that straddles midnight keeps its two sides in order.
+  assert.deepEqual(resolveBreakMinutes(22 * 60, 23 * 60 + 30, 30), { startMin: 1410, endMin: 1470 });
+});
+
+test('a 22:00-02:00 day runs overnight and clips its next-morning break', () => {
+  const schedule = weekly({ mon: day('22:00', '02:00', [{ start: '00:30', end: '01:00' }]) });
+  // Tuesday 00:15 is inside Monday's interval, and the break is still ahead of us.
+  const st = getBarState(schedule, TUE(0, 15));
+  assert.equal(st.mode, 'active');
+  assert.equal(st.labels.end, '26:00');
+  assert.ok(st.segments.some((sg) => sg.kind === 'break'));
+  // Past the break it is gone from the remaining side, like any elapsed break.
+  assert.ok(!getBarState(schedule, TUE(1, 30)).segments.some((sg) => sg.kind === 'break'));
+  // ...and once 02:00 passes, the interval is over.
+  assert.equal(getBarState(schedule, TUE(2, 30)).mode, 'hidden');
+});
+
+// --- ticks are anchored to the clock, not to the interval start ---
+
+test('ticks: hourly ticks land on the hour even when the day starts at 9:30', () => {
+  const schedule = weekly({ mon: day('9:30', '17:00') });
+  const st = getBarState(schedule, MON(10), { tickIntervalMinutes: 60 });
+  const span = 7.5 * 60; // minutes
+  // 10:00 .. 16:00, i.e. every full hour strictly inside the interval.
+  assert.equal(st.ticks.length, 7);
+  assert.ok(Math.abs(st.ticks[0] - 30 / span) < 1e-9); // 10:00 = 30 min in
+  assert.ok(Math.abs(st.ticks[6] - (16 * 60 - (9 * 60 + 30)) / span) < 1e-9); // 16:00
+});
+
+test('ticks: an overnight interval keeps ticking on the clock past midnight', () => {
+  const schedule = weekly({ mon: day('22:00', '02:00') });
+  const st = getBarState(schedule, MON(23), { tickIntervalMinutes: 60 });
+  assert.equal(st.ticks.length, 3); // 23:00, 24:00, 01:00 (the 02:00 end is not interior)
+  assert.ok(Math.abs(st.ticks[0] - 1 / 4) < 1e-9);
+  assert.ok(Math.abs(st.ticks[1] - 2 / 4) < 1e-9);
+});
+
+test('nextLocalMidnightMs is the start of tomorrow, not now + 24h', () => {
+  assert.equal(nextLocalMidnightMs(MON(16, 30)), TUE(0));
+  assert.equal(nextLocalMidnightMs(MON(0, 0)), TUE(0));
+  assert.equal(nextLocalMidnightMs(MON(23, 59)), TUE(0));
 });
