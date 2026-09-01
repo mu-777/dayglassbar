@@ -40,7 +40,7 @@ DAYGLASSBAR_DEBUG=1 npm start
 
 | 層 | 場所 | 責務 |
 | --- | --- | --- |
-| core | `src/core/` | 時間モデル(schedule)・検証(validate)・幾何(geometry)・時刻源(time-source)・多言語(i18n)・カレンダー幾何(calendar)・zip生成(zip＝依存ゼロのZIPライタ)・バージョン比較(version＝手動更新確認用)。**Electron/DOM非依存** |
+| core | `src/core/` | 時間モデル(schedule)・検証(validate)・幾何(geometry)・ディスプレイ照合(display＝保存したディスプレイ指定の再特定)・時刻源(time-source)・多言語(i18n)・カレンダー幾何(calendar)・zip生成(zip＝依存ゼロのZIPライタ)・バージョン比較(version＝手動更新確認用)。**Electron/DOM非依存** |
 | main | `src/main/` | エントリ(index)・バー窓(bar-window)・設定窓・トレイ・永続化(store)・ロギング(logger)・診断ダンプ(diagnostics)・カレンダー連携(`calendar/`: OAuth・プロバイダ・トークン暗号ストア・取得サービス) |
 | preload | `src/preload/` | contextBridge（`.cjs`） |
 | renderer | `src/renderer/bar`, `src/renderer/settings` | バー描画・設定UI |
@@ -48,6 +48,10 @@ DAYGLASSBAR_DEBUG=1 npm start
 
 - 状態の流れ: main が毎秒 `getBarState(schedule, now)` を計算 → `bar:state` で renderer に push → renderer は純粋に描画。
 - 設定の流れ: 設定UI → `settings:save`(IPC) → `validateSettings` OK で `store.save` → `store.onChange` でバーへ即時反映。`settings:reset`(IPC)＝設定を `store.getDefaults()`（＝`DEFAULT_SETTINGS`＋この端末の OS ロケール由来の言語）に戻して保存（`calendar-accounts.enc`＝OAuth接続・表示カレンダー選択は対象外＝保持）。`app:check-updates`(IPC)＝GitHub Releases を1回だけ見る**手動**の更新確認（自動チェックはしない＝#4）。日付の overrides は起動時に core `prunePastOverrides` で自動削除（昨日分は夜跨ぎ区間が続いている可能性があるため残す）。
+- 時刻入力と日跨ぎ: 設定の時刻欄はすべて **`<input type="time">`（OS 標準の時計入力）**。値は 0:00〜23:59 の壁時計しか持てないので、core の**ラップ規則**で夜跨ぎを表す＝`resolveEndMinutes`（**終了 ≤ 開始なら +24h**。22:00〜02:00 = 26:00）と `resolveBreakMinutes`（休憩は**その日の開始以降で最初に来る側**へ解決。22:00 始まりの日の 00:30 は 24:30）。**24時超表記（25:00）は従来どおり素通しする＝既存/インポートした settings.json の意味は不変**。`validateSettings` も**同じ2関数**を通してから範囲を見る（二重実装を作らない）。この結果「終了は開始より後」エラー（`v.endAfterStart`）は成立しなくなり削除済み。設定 UI は曜日行を**「期間」と「休憩」の別枠（`.time-group`）**に分けて描く。**逆戻りガード**: 自由テキスト入力に戻さない・ラップ規則をレンダラーへ写経しない。詳細は docs/design.md「時刻入力」。
+- 目盛り: `computeTicks` は**区間開始からの N 分ではなく、その区間の 0:00 起点**で置く（既定 60 分＝開始が 9:30 でも線は毎正時）。位置は `msAt` で作るので DST があっても壁時計に追従。
+- ディスプレイ指定: `screen` の**ディスプレイ id は再起動をまたいで安定しない**（Windows で顕著）ため、`appearance.displayId` に加えて**記述子 `appearance.displayMatch`（label＋bounds）**を保存し、core `findDisplay`（id → label+bounds → bounds → label の順で**一意に絞れるときだけ**採用）で照合する。main は起動直後 `healDisplayChoice()` で id を書き戻す（記述子の無い既存設定への**後付けも兼ねる**）。ディスプレイが本当に外れているときは**設定を書き換えない**＝再接続で復帰（spec 4.2）。**逆戻りガード**: `displayId` だけの `find` に戻さない。
+- バーの一時的な非表示: トレイの**チェック項目**（`tray.hide`）で当日いっぱい非表示。**もう一度押せば即復帰・押さなくても翌日 0:00 に自動復帰**（`nextLocalMidnightMs`）。状態は「期限の epoch ms」1つだけで、`isTemporarilyHidden()` は**毎回時計と比較**（不変条件 #1＝タイマを持たないのでスリープが日付を跨いでも戻る）。判定は `bar-window.js` `pushState()` 冒頭の1か所、トレイのチェックは `onHiddenChanged` でメニュー再構築して同期。保存先は `settings.json` ではなく **`userData/hidden-until`**（`onboarded` と同じ理由＝端末ごとの一時状態・**エクスポート対象外**）。通知やカウントダウンは出さない（#4）。
 - 初回導線: バーはクリックスルーで UI を持たないため、初回起動時のみ設定窓を自動オープン（`openSettingsWindow({firstRun:true})`→ renderer は `?firstRun=1` で `onboarding.trayHint` バナーを表示）して「設定はトレイから」を伝える。判定は `store.isOnboarded()`/`markOnboarded()`＝`userData/onboarded` センチネル（**settings.json と別＝エクスポート対象外**。インポートで初回案内が抑止されない・新端末が既済を継がない）。トレイのツールチップ（`tray.tooltip`）も恒久のフォールバック。**一度きり＝急かさない（#4）**。
 - エクスポート/インポート: `settings:export`/`settings:import`(IPC) は `dialog.show{Save,Open}Dialog` でローカル JSON を読み書き（クラウドなし）。インポートは `validateSettings` OK のときだけ `store.save`、不正/破損時は何も適用せず UI にエラー表示。設定 UI に「開発」セクションは無い（時刻シミュレーションは環境変数専用）。
 - ロギング（問題解析用）: `src/main/logger.js` の `createLogger({dir,level,mirror})` が `userData/logs/main.log` に追記（NDJSON 風の1行レコード `ISO LEVEL [scope] msg {json}`）。**サイズ上限で `main.log.1`/`.2` にローテーション**（既定 2MB×2）。レベルは `error<warn<info<debug`、**既定 info**。`level` は env で上げる: `DAYGLASSBAR_LOG_LEVEL=debug`（最優先）か `DAYGLASSBAR_DEBUG=1`。**開発(`npm start`＝未パッケージ)時は端末にもミラー**（`mirror:!app.isPackaged`）。`log.child('scope')` で `app:calendar` 等に分岐。**秘匿キー（token/secret/refresh 等）は自動で `[redacted]`・Error は name/message/stack に展開**。`process` の `uncaughtException`/`unhandledRejection` と `app` の `render-process-gone`/`child-process-gone` を捕捉。バーの `render-process-gone` は `bar-window.js` 側でも個別に捕捉し**自動 reload で復帰**する（常駐バーはレンダラーが死んだまま放置すると再起動まで無表示になるため）。各層へは `log.child(...)` を注入（store/bar/calendar）。**core 非依存（fs/path のみ）で `test/logger.test.js` がローテ・しきい値・redaction を担保**。書き込み失敗は握り潰し＝ログでアプリを落とさない。このログを上の診断ダンプが同梱する。
@@ -70,8 +74,10 @@ DAYGLASSBAR_DEBUG=1 npm start
 7. **カレンダーの秘匿情報は `settings.json` に入れない**（OAuth トークン/アカウントは `calendar-accounts.enc` に分離・エクスポート対象外）。予定は**毎秒取得しない**（タイマ取得＋tick で再クリップ）。予定の色帯も**残り側のみ・色は一定**（#4 と整合。予定で急かさない）。OAuth 資格情報は **Microsoft=client_id のみ＋PKCE／Google=client_id＋（非機密）client_secret＋PKCE**（Google はトークン交換に secret 必須。Microsoft には secret を足さない＝逆戻りガード）。**ICS 購読は再導入しない**（提供側キャッシュで追従が遅く鮮度要件を満たせない＝逆戻りガード。docs/calendar-integration.md 決定0）。**Outlook はローカル/クラウドを排他二択**で出す（両用同時のミスリードを作らない）。
 
 ## 検証方針
-- 自動テストで担保できるのは **core**（時間・検証・幾何・store）と**カレンダーの純粋部分**（`calendar`(core) の幾何/正規化・PKCE・認可URL・各プロバイダの `mapEvents`）まで。
+- 自動テストで担保できるのは **core**（時間・検証・幾何・**ディスプレイ照合**・store）と**カレンダーの純粋部分**（`calendar`(core) の幾何/正規化・PKCE・認可URL・各プロバイダの `mapEvents`）まで。
 - バー描画・クリックスルー・ホバー展開・トレイ・自動起動・DPI、設定のエクスポート/インポート（`dialog`）、および**カレンダーの OAuth/取得/暗号保管**は **Windows 実機での手動確認**が必要（README のチェックリスト参照）。
+- **id が実際に変わるかは実機でしか出ない**ので、ディスプレイ指定の保持（プライマリ以外を指定 → PC 再起動 → 同じディスプレイに出るか）は毎回チェックリストで見る。`findDisplay` のロジック自体は `test/display.test.js`。
+- 設定 UI（時計入力・期間/休憩の分離）は自動テスト対象外。`<input type="time">` の表示形式は **OS ロケール依存**（24時間制 / AM/PM）なので、日本語 Windows と英語 Windows の両方で一度見る。
 
 ## ドキュメント保守（Claude Code の振る舞い）
 - コード変更時は、影響範囲に応じて `README.md`（利用者向け）と `CLAUDE.md`（開発・AI向け）を**ユーザーの指示を待たずに同じ作業内で更新**する。コマンド・設定スキーマ・IPC・不変条件・アーキテクチャ・動作確認手順に変化があれば必ず追従させる。

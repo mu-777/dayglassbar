@@ -40,12 +40,49 @@ test('valid settings pass', () => {
   assert.equal(r.ok, true);
 });
 
-test('end must be after start', () => {
+// An end at or before the start is no longer an error: it is how the clock-field UI expresses
+// an overnight interval (17:00 → 9:00 = 16 hours, ending 9:00 the next day).
+test('end at or before start is accepted as an overnight interval', () => {
   const s = base();
   s.schedule.weekly.mon = { enabled: true, start: '17:00', end: '9:00', breaks: [] };
-  const r = validateSettings(s);
+  assert.equal(validateSettings(s).ok, true);
+});
+
+test('a break inside an overnight interval may be given as its plain clock time', () => {
+  const s = base();
+  // 22:00 → 02:00, with a break at 00:30–01:00 the following morning. Both break times are
+  // before the day's start, so they resolve to 24:30–25:00 and land inside the interval.
+  s.schedule.weekly.mon = { enabled: true, start: '22:00', end: '02:00', breaks: [{ start: '00:30', end: '01:00' }] };
+  s.schedule.weekly.tue = { enabled: false };
+  assert.equal(validateSettings(s).ok, true);
+
+  // A break that is outside the interval is still rejected (04:00 is past the 02:00 end).
+  const bad = base();
+  bad.schedule.weekly.mon = { enabled: true, start: '22:00', end: '02:00', breaks: [{ start: '04:00', end: '04:30' }] };
+  bad.schedule.weekly.tue = { enabled: false };
+  const e = validateSettings(bad).errors.find((x) => x.path === 'schedule.weekly.mon');
+  assert.equal(e.code, 'v.breakOutside');
+});
+
+test('an overnight interval still may not reach 24 hours', () => {
+  const s = base();
+  // Equal start and end would wrap to a full 24h span.
+  s.schedule.weekly.mon = { enabled: true, start: '9:00', end: '9:00', breaks: [] };
+  const e = validateSettings(s).errors.find((x) => x.path === 'schedule.weekly.mon');
+  assert.equal(e.code, 'v.spanUnder24');
+});
+
+test('display choice: an id with its descriptor is accepted, a malformed one is not', () => {
+  const ok = base();
+  ok.appearance.displayId = 2528732444;
+  ok.appearance.displayMatch = { label: '\\\\.\\DISPLAY2', x: 1920, y: 0, width: 2560, height: 1440 };
+  assert.equal(validateSettings(ok).ok, true);
+
+  const bad = base();
+  bad.appearance.displayMatch = { label: 'x', x: 0, y: 0, width: 'wide', height: 1440 };
+  const r = validateSettings(bad);
   assert.equal(r.ok, false);
-  assert.ok(r.errors.some((e) => e.path === 'schedule.weekly.mon'));
+  assert.ok(r.errors.some((e) => e.path === 'appearance.display'));
 });
 
 test('span must be under 24h', () => {
@@ -130,9 +167,9 @@ test('language: absent is fine, a known code is fine, an unknown code is rejecte
 
 test('errors carry a code (language-agnostic), not a pre-formatted message', () => {
   const s = base();
-  s.schedule.weekly.mon = { enabled: true, start: '17:00', end: '9:00', breaks: [] };
+  s.schedule.weekly.mon = { enabled: true, start: '24:30', end: '26:00', breaks: [] };
   const e = validateSettings(s).errors.find((x) => x.path === 'schedule.weekly.mon');
-  assert.equal(e.code, 'v.endAfterStart');
+  assert.equal(e.code, 'v.startBefore24');
   assert.deepEqual(e.params, { labelKind: 'weekday', dayKey: 'mon' });
 });
 

@@ -172,6 +172,12 @@ code {
   flex-wrap: wrap;
 }
 
+/* A class selector beats the UA's [hidden] rule, so an explicit `display` on .when would
+   otherwise keep an OFF day's time fields on screen (the enabled checkbox toggles .hidden). */
+.day-editor .when[hidden] {
+  display: none;
+}
+
 label.enabled,
 .day-editor label.enabled {
   display: inline-flex;
@@ -181,11 +187,36 @@ label.enabled,
   white-space: nowrap;
 }
 
+/* The day's interval and its breaks are two labelled groups, so a row of otherwise
+   identical time boxes doesn't read as one long range. */
+.time-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+
+.time-group > .group-label {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
 .breaks {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   flex-wrap: wrap;
+}
+
+/* Break rows sit inside the breaks group, so they only need to separate from each other. */
+.breaks-group .break-row {
+  background: var(--panel);
 }
 
 .break-row {
@@ -202,9 +233,12 @@ label.enabled,
   color: var(--muted);
 }
 
+/* <input type="time"> renders its own spinner/indicator, so it needs more room than the
+   old free-text box and must not be centered (the picker glyph sits at the trailing edge). */
 input.time {
-  width: 60px;
-  text-align: center;
+  width: auto;
+  min-width: 96px;
+  font-variant-numeric: tabular-nums;
 }
 
 input,

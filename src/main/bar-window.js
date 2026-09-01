@@ -16,6 +16,7 @@ import path from 'node:path';
 import { BrowserWindow, screen, app } from 'electron';
 import { getBarState, getNextInterval, formatMinutes, dateKeyOf, parseDateKey, WEEKDAY_KEYS } from '../core/schedule.js';
 import { computeBarBounds, pointInBounds } from '../core/geometry.js';
+import { displayInfo, findDisplay } from '../core/display.js';
 import { t, DEFAULT_LANGUAGE } from '../core/i18n.js';
 import { createFakeEventSource } from './calendar/fake-events.js';
 
@@ -28,7 +29,18 @@ const POLL_NEAR_MS = 60;
 // on screen for visual checks. Unset by default → production behavior is unchanged.
 const WSL_VISIBLE = /^(1|true|yes|on)$/i.test(process.env.DAYGLASSBAR_WSL_VISIBLE || '');
 
-export function createBarController({ store, timeSource, calendar = null, log = null }) {
+// `isTemporarilyHidden` is the tray's "hide until tomorrow" switch (main owns the state);
+// `onHiddenChanged` fires when the bar actually hides or comes back, which is how the tray
+// checkmark clears itself when the hide expires overnight — no timer needed, the per-second
+// tick already re-reads the switch.
+export function createBarController({
+  store,
+  timeSource,
+  calendar = null,
+  log = null,
+  isTemporarilyHidden = () => false,
+  onHiddenChanged = null,
+}) {
   // Dev-only fake events (DAYGLASSBAR_FAKE_EVENTS); the real events come from the
   // CalendarService (`calendar`). Both expose normalized { startMs, endMs, title }.
   const fakeEvents = createFakeEventSource(process.env);
@@ -40,6 +52,7 @@ export function createBarController({ store, timeSource, calendar = null, log = 
   let tickTimer = null;
   let quitting = false;
   let displayFallbackActive = false; // log only when the configured-display fallback toggles
+  let wasHidden = false; // last observed temporary-hide state, for onHiddenChanged
 
   app.on('before-quit', () => {
     quitting = true;
@@ -50,10 +63,16 @@ export function createBarController({ store, timeSource, calendar = null, log = 
 
   function pickDisplay() {
     // Fall back to the primary display when the configured one is unavailable
-    // (spec 4.2: disconnected display → primary, restored on reconnect).
-    const wanted = appearance().displayId;
-    const found = screen.getAllDisplays().find((d) => d.id === wanted);
-    const onFallback = wanted != null && !found;
+    // (spec 4.2: disconnected display → primary, restored on reconnect). The lookup goes
+    // through core findDisplay so a display whose *id* changed across a restart — which is
+    // routine on Windows — is still recognized by its saved descriptor instead of silently
+    // reverting to primary (src/core/display.js).
+    const ap = appearance();
+    const wanted = ap.displayId;
+    const displays = screen.getAllDisplays();
+    const match = findDisplay(displays.map(displayInfo), wanted, ap.displayMatch);
+    const found = match ? displays.find((d) => d.id === match.id) : null;
+    const onFallback = (wanted != null || ap.displayMatch) && !found;
     if (onFallback !== displayFallbackActive) {
       displayFallbackActive = onFallback;
       if (onFallback) log?.warn('configured display unavailable; using primary', { wanted });
@@ -146,6 +165,19 @@ export function createBarController({ store, timeSource, calendar = null, log = 
   // resume / clock changes are handled correctly.
   function pushState() {
     if (!win || win.isDestroyed()) return;
+    // Tray "hide until tomorrow": one choke point, checked every tick — so the bar also
+    // comes back on its own the moment the hide expires (invariant #1: always recomputed
+    // from the clock, never from a timer that sleep could stall).
+    const hidden = isTemporarilyHidden();
+    if (hidden !== wasHidden) {
+      wasHidden = hidden;
+      log?.info(hidden ? 'bar temporarily hidden' : 'bar visible again');
+      onHiddenChanged?.(hidden);
+    }
+    if (hidden) {
+      if (win.isVisible()) win.hide();
+      return;
+    }
     const settings = store.get();
     const ap = settings.appearance;
     const now = timeSource.now();
@@ -266,5 +298,15 @@ export function createBarController({ store, timeSource, calendar = null, log = 
     if (win && !win.isDestroyed()) win.destroy();
   }
 
-  return { start, dispose };
+  // Recompute and repaint now (main calls this after toggling the temporary hide, so the
+  // bar reacts to the tray immediately instead of on the next second tick).
+  function refresh() {
+    try {
+      pushState();
+    } catch (err) {
+      log?.error('bar refresh failed', err);
+    }
+  }
+
+  return { start, dispose, refresh };
 }

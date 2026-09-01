@@ -21,6 +21,10 @@ export const DEFAULT_SETTINGS = {
   },
   appearance: {
     displayId: null, // null = primary display
+    // Descriptor of the chosen display, saved beside the id because the id itself is not
+    // stable across restarts (see src/core/display.js) — without it the bar silently falls
+    // back to the primary display on the next launch. null whenever displayId is null.
+    displayMatch: null,
     edge: 'right', // top | bottom | left | right
     thickness: 16, // logical px
     color: '#4a90d9',
@@ -92,6 +96,10 @@ export function createStore(dir, log = null, { defaultLanguage } = {}) {
   // install state, not a portable preference — importing settings shouldn't suppress the
   // first-run guide on a fresh device, nor should a fresh install inherit it.
   const onboardedFile = path.join(dir, 'onboarded');
+  // "Temporarily hidden until" instant (epoch ms), same reasoning as the sentinel above:
+  // this is transient local state, not a portable preference, so it stays out of
+  // settings.json (and therefore out of export/import). Absent/expired = visible.
+  const hiddenUntilFile = path.join(dir, 'hidden-until');
   const listeners = new Set();
   let settings = load();
 
@@ -140,6 +148,30 @@ export function createStore(dir, log = null, { defaultLanguage } = {}) {
     }
   }
 
+  // Epoch ms the temporary hide expires at, or 0 when the bar is not hidden.
+  function getHiddenUntil() {
+    try {
+      const v = Number(fs.readFileSync(hiddenUntilFile, 'utf8').trim());
+      return Number.isFinite(v) && v > 0 ? v : 0;
+    } catch {
+      return 0; // no file = not hidden (the common case)
+    }
+  }
+
+  // Best-effort like markOnboarded: a failure here can only mean the hide doesn't survive a
+  // restart, never a crash. 0/null removes the marker.
+  function setHiddenUntil(ms) {
+    try {
+      if (!ms) fs.rmSync(hiddenUntilFile, { force: true });
+      else {
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(hiddenUntilFile, String(Math.round(ms)), 'utf8');
+      }
+    } catch (err) {
+      log?.warn('hide marker write failed', err);
+    }
+  }
+
   return {
     get: () => settings,
     save,
@@ -150,6 +182,8 @@ export function createStore(dir, log = null, { defaultLanguage } = {}) {
     filePath: file,
     isOnboarded,
     markOnboarded,
+    getHiddenUntil,
+    setHiddenUntil,
     // Returns a fresh clone so callers (e.g. settings:reset) can't mutate the store's
     // instance defaults by touching the returned object.
     getDefaults: () => structuredClone(defaults),

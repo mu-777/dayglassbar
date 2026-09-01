@@ -3,7 +3,9 @@
 import path from 'node:path';
 import { Tray, Menu, nativeImage, app } from 'electron';
 
-export function createAppTray({ onOpenSettings, onQuit, getSummary, getLabels }) {
+// `onToggleHidden` / `isHidden` drive the "hide until tomorrow" checkbox item — the one
+// control the click-through bar cannot offer itself (invariant #6), so it lives here.
+export function createAppTray({ onOpenSettings, onQuit, onToggleHidden, getSummary, getLabels, isHidden = () => false }) {
   const assetsDir = path.join(app.getAppPath(), 'assets');
   const iconFile = process.platform === 'darwin' ? 'trayTemplate.png' : 'tray.png';
   const image = nativeImage.createFromPath(path.join(assetsDir, iconFile));
@@ -22,6 +24,16 @@ export function createAppTray({ onOpenSettings, onQuit, getSummary, getLabels })
     const menu = Menu.buildFromTemplate([
       { label: getSummary(), enabled: false },
       { type: 'separator' },
+      // Checkbox rather than a label that flips wording: the tick shows at a glance that the
+      // bar is hidden on purpose (and not, say, crashed) — and it clears itself when the hide
+      // expires, because main rebuilds the menu from the bar's own visibility change.
+      {
+        label: labels.hide,
+        toolTip: labels.hideHint,
+        type: 'checkbox',
+        checked: isHidden(),
+        click: onToggleHidden,
+      },
       { label: labels.settings, click: onOpenSettings },
       { type: 'separator' },
       { label: labels.quit, click: onQuit },

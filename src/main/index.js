@@ -11,7 +11,8 @@ import { createAppTray } from './tray.js';
 import { createCalendarService } from './calendar/index.js';
 import { timeSourceFromEnv, isSimulated } from '../core/time-source.js';
 import { validateSettings } from '../core/validate.js';
-import { getActiveDaySummary, formatMinutes, dateKeyOf, prunePastOverrides } from '../core/schedule.js';
+import { getActiveDaySummary, formatMinutes, dateKeyOf, prunePastOverrides, nextLocalMidnightMs } from '../core/schedule.js';
+import { displayInfo, displayMatchOf, findDisplay } from '../core/display.js';
 import { t, LANGUAGES, DEFAULT_LANGUAGE, MESSAGES, LANGUAGE_NAMES, languageFromLocale } from '../core/i18n.js';
 import { isNewerVersion } from '../core/version.js';
 
@@ -43,6 +44,12 @@ function main() {
   let bar;
   let trayCtl;
   let calendar;
+  // Tray "hide until tomorrow": the instant the hide expires (epoch ms), 0 when visible.
+  // Read from the clock on every check (invariant #1) rather than armed on a timer, so a
+  // sleep across midnight still brings the bar back. Persisted outside settings.json so a
+  // restart in the same evening keeps the bar hidden without polluting export/import.
+  let hiddenUntilMs = 0;
+  const isTemporarilyHidden = () => hiddenUntilMs > 0 && hiddenUntilMs > timeSource.now();
 
   // Active UI language (from settings; defaults to English) and a bound translator.
   const lang = () => store.get().language || DEFAULT_LANGUAGE;
@@ -80,6 +87,14 @@ function main() {
       defaultLanguage: languageFromLocale(app.getLocale()),
     });
 
+    // Re-anchor the saved display choice before anything reads it. Display ids change across
+    // restarts (Windows especially), which used to drop a non-primary choice on every launch:
+    // the bar reappeared on the primary display and the settings dropdown showed "Auto". Here
+    // the monitor is re-found by its descriptor and the id is written back, which also
+    // back-fills the descriptor for settings saved before it existed. When the display is
+    // genuinely absent the stored choice is left untouched, so it is restored on reconnect.
+    healDisplayChoice();
+
     // D-3: date overrides would otherwise accumulate forever. Prune anything strictly
     // before yesterday on every startup — yesterday itself is kept in case an overnight
     // interval that started yesterday is still running into today (prunePastOverrides).
@@ -99,12 +114,43 @@ function main() {
       getCalendarSettings: () => store.get().appearance.calendar,
       log: log.child('calendar'),
     });
-    bar = createBarController({ store, timeSource, calendar, log: log.child('bar') });
+    // A hide that already expired while the app was closed is simply dropped on startup.
+    hiddenUntilMs = store.getHiddenUntil();
+    if (hiddenUntilMs && !isTemporarilyHidden()) {
+      hiddenUntilMs = 0;
+      store.setHiddenUntil(0);
+    }
+    if (hiddenUntilMs) log.info('starting with the bar temporarily hidden', { until: new Date(hiddenUntilMs).toISOString() });
+
+    bar = createBarController({
+      store,
+      timeSource,
+      calendar,
+      log: log.child('bar'),
+      isTemporarilyHidden,
+      // Fires when the hide expires on its own (midnight passed) as well as on the toggle:
+      // drop the stale marker and re-tick the tray so its checkmark matches what's on screen.
+      onHiddenChanged: (hidden) => {
+        if (!hidden && hiddenUntilMs) {
+          hiddenUntilMs = 0;
+          store.setHiddenUntil(0);
+        }
+        if (trayCtl) trayCtl.rebuild();
+      },
+    });
     trayCtl = createAppTray({
       onOpenSettings: () => openSettingsWindow(),
       onQuit: () => app.quit(),
+      onToggleHidden: toggleTemporaryHide,
+      isHidden: isTemporarilyHidden,
       getSummary: summaryLine,
-      getLabels: () => ({ settings: tr('tray.settings'), quit: tr('tray.quit'), tooltip: tr('tray.tooltip') }),
+      getLabels: () => ({
+        settings: tr('tray.settings'),
+        quit: tr('tray.quit'),
+        tooltip: tr('tray.tooltip'),
+        hide: tr('tray.hide'),
+        hideHint: tr('tray.hideHint'),
+      }),
     });
 
     registerIpc();
@@ -137,6 +183,41 @@ function main() {
       openSettingsWindow({ firstRun: true });
     }
   });
+
+  function healDisplayChoice() {
+    const ap = store.get().appearance;
+    if (ap.displayId == null && !ap.displayMatch) return; // "auto" (primary) — nothing to anchor
+    const displays = screen.getAllDisplays();
+    const found = findDisplay(displays.map(displayInfo), ap.displayId, ap.displayMatch);
+    if (!found) {
+      log.warn('configured display not found at startup; keeping the setting', { displayId: ap.displayId });
+      return;
+    }
+    const match = displayMatchOf(found);
+    if (found.id === ap.displayId && JSON.stringify(match) === JSON.stringify(ap.displayMatch)) return;
+    const next = structuredClone(store.get());
+    next.appearance.displayId = found.id;
+    next.appearance.displayMatch = match;
+    try {
+      store.save(next);
+      log.info('re-anchored display choice', { from: ap.displayId, to: found.id, label: match.label });
+    } catch (err) {
+      log.warn('could not persist the re-anchored display choice', err); // in-memory match still applies
+    }
+  }
+
+  // Tray toggle: hide the bar for the rest of today, or bring it straight back. "Temporary"
+  // is deliberately anchored to the calendar day rather than a duration — the point is to get
+  // through this meeting/screen-share and have the bar back tomorrow without remembering to
+  // re-enable it. Nothing nags in between (invariant #4): no notification, no countdown.
+  function toggleTemporaryHide() {
+    hiddenUntilMs = isTemporarilyHidden() ? 0 : nextLocalMidnightMs(timeSource.now());
+    store.setHiddenUntil(hiddenUntilMs);
+    log.info(hiddenUntilMs ? 'bar hidden until tomorrow' : 'bar unhidden', {
+      until: hiddenUntilMs ? new Date(hiddenUntilMs).toISOString() : null,
+    });
+    bar.refresh(); // apply now; onHiddenChanged rebuilds the tray
+  }
 
   function summaryLine() {
     // Reflects the *currently active* interval — including an overnight one that
@@ -286,16 +367,11 @@ function main() {
       messages: MESSAGES,
     }));
     // Raw display geometry; the renderer formats the label (so it follows the live language).
+    // `label` comes along because it is part of the descriptor the renderer stores and matches
+    // on (core/display.js) — the bar and the dropdown must resolve a saved choice identically.
     ipcMain.handle('displays:list', () => {
       const primaryId = screen.getPrimaryDisplay().id;
-      return screen.getAllDisplays().map((d) => ({
-        id: d.id,
-        primary: d.id === primaryId,
-        width: d.bounds.width,
-        height: d.bounds.height,
-        x: d.bounds.x,
-        y: d.bounds.y,
-      }));
+      return screen.getAllDisplays().map((d) => ({ ...displayInfo(d), primary: d.id === primaryId }));
     });
 
     // Export current settings to a JSON file chosen by the user (file only — no cloud).

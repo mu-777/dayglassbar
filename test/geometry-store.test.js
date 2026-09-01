@@ -96,6 +96,26 @@ test('store: onboarding sentinel is one-shot, persists, and stays out of setting
   assert.ok(!('onboarded' in JSON.parse(fs.readFileSync(store.filePath, 'utf8'))));
 });
 
+test('store: the temporary-hide marker persists and stays out of settings.json', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dgb-'));
+  const store = createStore(dir);
+  assert.equal(store.getHiddenUntil(), 0); // nothing hidden by default
+
+  const until = Date.now() + 3600_000;
+  store.setHiddenUntil(until);
+  assert.equal(store.getHiddenUntil(), until);
+  assert.equal(createStore(dir).getHiddenUntil(), until); // survives a restart the same evening
+
+  // Like the onboarding sentinel, this is local transient state — never exported.
+  store.save(structuredClone(store.get()));
+  const saved = JSON.parse(fs.readFileSync(store.filePath, 'utf8'));
+  assert.ok(!('hiddenUntil' in saved) && !('hidden-until' in saved));
+
+  store.setHiddenUntil(0); // pressing the tray item again clears it
+  assert.equal(store.getHiddenUntil(), 0);
+  assert.equal(createStore(dir).getHiddenUntil(), 0);
+});
+
 test('store: corrupt file falls back to defaults', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'dgb-'));
   fs.writeFileSync(path.join(dir, 'settings.json'), '{not json');

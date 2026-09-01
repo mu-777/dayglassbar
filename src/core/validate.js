@@ -10,6 +10,8 @@ import {
   resolveDay,
   parseDateKey,
   addDays,
+  resolveEndMinutes,
+  resolveBreakMinutes,
 } from './schedule.js';
 import { LANGUAGES } from './i18n.js';
 
@@ -23,26 +25,25 @@ function err(path, code, params) {
 function validateDayRecord(rec, path, label, errors) {
   if (!rec || !rec.enabled) return;
   const startMin = parseTimeToMinutes(rec.start);
-  const endMin = parseTimeToMinutes(rec.end);
+  const rawEndMin = parseTimeToMinutes(rec.end);
   if (startMin == null) errors.push(err(path, 'v.startFormat', { ...label }));
-  if (endMin == null) errors.push(err(path, 'v.endFormat', { ...label }));
-  if (startMin == null || endMin == null) return;
+  if (rawEndMin == null) errors.push(err(path, 'v.endFormat', { ...label }));
+  if (startMin == null || rawEndMin == null) return;
   if (startMin >= 1440) {
     errors.push(err(path, 'v.startBefore24', { ...label }));
     return;
   }
-  if (endMin <= startMin) {
-    errors.push(err(path, 'v.endAfterStart', { ...label }));
-    return;
-  }
+  // Same wrap rule the runtime uses (schedule.js): an end at or before the start is an
+  // overnight interval, not an error — so 22:00-02:00 is accepted as written and there is
+  // no "end must be after start" case left to report.
+  const endMin = resolveEndMinutes(startMin, rawEndMin);
   if (endMin - startMin >= 1440) {
     errors.push(err(path, 'v.spanUnder24', { ...label }));
     return;
   }
   const breaks = (rec.breaks || []).map((b, i) => ({
     i,
-    startMin: parseTimeToMinutes(b.start),
-    endMin: parseTimeToMinutes(b.end),
+    ...resolveBreakMinutes(startMin, parseTimeToMinutes(b.start), parseTimeToMinutes(b.end)),
   }));
   for (const b of breaks) {
     if (b.startMin == null || b.endMin == null) {
@@ -123,6 +124,18 @@ export function validateSettings(settings) {
   const ap = settings?.appearance || {};
   const numIn = (v, lo, hi) => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
   const hexColor = (v) => /^#[0-9a-fA-F]{6}$/.test(v || '');
+  // Display choice: `displayId` is the exact match while it still resolves; `displayMatch`
+  // is the descriptor that re-finds the same monitor after the id changes (src/core/display.js).
+  // Both are optional — absent/null means "primary".
+  const dm = ap.displayMatch;
+  const displayOk =
+    (ap.displayId == null || Number.isFinite(ap.displayId)) &&
+    (dm == null ||
+      (typeof dm === 'object' &&
+        !Array.isArray(dm) &&
+        typeof dm.label === 'string' &&
+        ['x', 'y', 'width', 'height'].every((k) => Number.isFinite(dm[k]))));
+  if (!displayOk) errors.push(err('appearance.display', 'v.display'));
   if (!['top', 'bottom', 'left', 'right'].includes(ap.edge)) errors.push(err('appearance.edge', 'v.edge'));
   if (!Number.isInteger(ap.thickness) || ap.thickness < 1 || ap.thickness > 64) {
     errors.push(err('appearance.thickness', 'v.thickness'));
