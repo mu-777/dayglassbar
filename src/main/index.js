@@ -147,7 +147,9 @@ function main() {
       getLabels: () => ({
         settings: tr('tray.settings'),
         quit: tr('tray.quit'),
-        tooltip: tr('tray.tooltip'),
+        // While hidden, the tooltip has to answer "where did my bar go?" — it is the only
+        // hint someone gets before opening the menu.
+        tooltip: isTemporarilyHidden() ? tr('tray.tooltipHidden') : tr('tray.tooltip'),
         hide: tr('tray.hide'),
         hideHint: tr('tray.hideHint'),
       }),
@@ -220,6 +222,10 @@ function main() {
   }
 
   function summaryLine() {
+    // A hidden bar reports that it is hidden. Showing today's hours as usual would leave the
+    // menu looking completely normal while nothing is on screen — the state that made this
+    // feature read as a bug.
+    if (isTemporarilyHidden()) return tr('tray.hiddenNow');
     // Reflects the *currently active* interval — including an overnight one that
     // started the previous day (e.g. Mon 02:00 inside Sun 9:00–27:00 shows 日曜),
     // not just the naive calendar-today record.

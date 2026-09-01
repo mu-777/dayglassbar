@@ -94,6 +94,10 @@ export function createBarController({
     win.setResizable(true);
     win.setBounds(b);
     win.setResizable(false);
+    // "The bar vanished" is the one failure users can't diagnose themselves, and the usual
+    // cause is bounds landing somewhere unexpected. Record what we asked for and what the OS
+    // actually gave us, so a diagnostics dump answers it.
+    log?.debug('bar bounds applied', { requested: b, actual: win.getBounds(), displayId: pickDisplay().id });
   }
 
   // Re-assert always-on-top. Two independent facts make this necessary:

@@ -241,6 +241,21 @@ input.time {
   font-variant-numeric: tabular-nums;
 }
 
+/* The clock/calendar glyph Chromium draws inside these inputs is a near-black bitmap meant
+   for a light form, so on this dark panel it reads as a smudge. Inverting it makes it white.
+   (`color-scheme: dark` would also do it, but it restyles every native control on the page.) */
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.75;
+  cursor: pointer;
+}
+
+input[type="time"]::-webkit-calendar-picker-indicator:hover,
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
 input,
 select {
   background: var(--panel-2);

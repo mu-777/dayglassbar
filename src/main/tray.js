@@ -21,12 +21,19 @@ export function createAppTray({ onOpenSettings, onQuit, onToggleHidden, getSumma
     // Hover hint so people who do find the icon learn it opens settings (the
     // in-app first-run guide is the primary discovery path).
     tray.setToolTip(labels.tooltip);
+    // Order matters. "Settings…" stays the FIRST clickable item because that is where it has
+    // always been and where people aim without reading — putting the hide toggle there cost a
+    // user their bar: they hit it on the way to Settings, and a hidden bar looks exactly like a
+    // broken one (it is gone from every display and survives a restart). The hide toggle
+    // therefore sits below Settings, fenced by separators.
+    // Checkbox rather than a label that flips wording: the tick shows at a glance that the bar
+    // is hidden on purpose — and it clears itself when the hide expires, because main rebuilds
+    // the menu from the bar's own visibility change.
     const menu = Menu.buildFromTemplate([
       { label: getSummary(), enabled: false },
       { type: 'separator' },
-      // Checkbox rather than a label that flips wording: the tick shows at a glance that the
-      // bar is hidden on purpose (and not, say, crashed) — and it clears itself when the hide
-      // expires, because main rebuilds the menu from the bar's own visibility change.
+      { label: labels.settings, click: onOpenSettings },
+      { type: 'separator' },
       {
         label: labels.hide,
         toolTip: labels.hideHint,
@@ -34,7 +41,6 @@ export function createAppTray({ onOpenSettings, onQuit, onToggleHidden, getSumma
         checked: isHidden(),
         click: onToggleHidden,
       },
-      { label: labels.settings, click: onOpenSettings },
       { type: 'separator' },
       { label: labels.quit, click: onQuit },
     ]);

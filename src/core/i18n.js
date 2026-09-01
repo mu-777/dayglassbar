@@ -159,6 +159,8 @@ export const MESSAGES = {
     'bar.nextFmt': 'Next {v}',
 
     'tray.hide': 'Hide until tomorrow',
+    'tray.hiddenNow': 'Hidden until tomorrow — click below to bring it back',
+    'tray.tooltipHidden': 'DayGlassBar — hidden until tomorrow (right-click to bring it back)',
     'tray.hideHint': 'Hide the bar for the rest of today. Click again to bring it back; it returns on its own tomorrow.',
     'tray.settings': 'Settings…',
     'tray.quit': 'Quit',
@@ -337,6 +339,8 @@ export const MESSAGES = {
     'bar.nextFmt': '次は {v}',
 
     'tray.hide': '一時的に非表示（翌日に復帰）',
+    'tray.hiddenNow': '非表示中（翌日に復帰）— 下のチェックを外すと戻ります',
+    'tray.tooltipHidden': 'DayGlassBar — 一時的に非表示中（右クリックで復帰）',
     'tray.hideHint': '今日いっぱいバーを隠します。もう一度押せばすぐ戻り、押さなくても翌日には自動で復帰します。',
     'tray.settings': '設定...',
     'tray.quit': '終了',
@@ -515,6 +519,8 @@ export const MESSAGES = {
     'bar.nextFmt': '下次 {v}',
 
     'tray.hide': '临时隐藏（次日恢复）',
+    'tray.hiddenNow': '已隐藏（次日恢复）— 取消下方勾选即可恢复',
+    'tray.tooltipHidden': 'DayGlassBar — 临时隐藏中（右键恢复）',
     'tray.hideHint': '在今天剩余时间内隐藏进度条。再次点击即可恢复，不点击也会在次日自动恢复。',
     'tray.settings': '设置…',
     'tray.quit': '退出',
