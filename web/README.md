@@ -81,6 +81,20 @@ Android の Chrome は、ユーザーが意図して設定していなくても 
 時刻にしてから OS のスクショ機能で撮ります。（リポジトリの
 `tools/capture-bar.mjs` でバー窓を描画して撮ることもできます。）
 
+## Google Search Console（サイト所有権確認）
+
+`index.html` の `<head>` に `<meta name="google-site-verification" ...>` が
+入っています。プロパティは **URL プレフィックス型**
+`https://mu-777.github.io/dayglassbar/`（`mu-777.github.io` は自分のドメインでは
+ないので、ドメイン プロパティ＝DNS 確認は使えない）。
+
+- **`privacy.html` / `terms.html` には不要**。GSC が見るのはプロパティ直下の
+  URL＝トップページの `<head>` だけ（[HTML タグによる確認](https://support.google.com/webmasters/answer/9008080)）。
+- **タグを消すと所有権が失効**し、インデックス状況の確認やサイトマップ送信が
+  使えなくなる。確認後も残すこと（逆戻りガード）。
+- 検索に載るのは所有権確認の結果ではない。確認は「GSC で状況を見られる」だけで、
+  インデックス登録は Googlebot のクロール次第。
+
 ## Web Analytics（Cloudflare）
 
 `index.html`・`privacy.html` の `</body>` 直前に、訪問数を見るための
