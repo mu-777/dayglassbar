@@ -12,10 +12,11 @@ npm run icons        # アイコン再生成（依存ゼロ・assets/へ出力�
 npm run dist         # 配布ビルド（ホストOS向け・electron-builder）
 npm run dist:win     # Windows向け（nsis/portable）。WSL/Linuxからは Wine 必須
 npm run dist:mac     # macOS向け（dmg）。macOS上でのみ可（WSL/Linux不可）
-npm version patch    # リリース版上げ（package.json＋CHANGELOG stamp＋タグ。minor/major も可）
+npm version patch    # リリース版上げ（package.json＋CHANGELOG stamp の版コミット。minor/major も可）
+                     # ローカルにできるタグは push しない＝タグは CI(release.yml) が打つ
 ```
 
-リリース手順（バージョン管理）: **`package.json` の `version` が版の唯一の正**（`app.getVersion()`／インストーラ名／設定フッタ表示が全部これ）、**`CHANGELOG.md`（Keep a Changelog 形式）がリリースノートの正**。流れは①`CHANGELOG.md` の `## [Unreleased]` 節に変更を書く（**Claude Code に「前タグ以降の変更を CHANGELOG.md の [Unreleased] に追記して」と頼む手動トリガ**。自動生成はしない）→ コミット ②`npm version patch`（`version` フック `tools/stamp-changelog.mjs` が `[Unreleased]`→`## [x.y.z] - 日付` に置換＋新しい空 `[Unreleased]` を作り、`package.json`＋`CHANGELOG.md` の版コミット＋`v<x.y.z>` タグを生成）③`git push --follow-tags` → `.github/workflows/build.yml` が両OSビルド＋`tools/extract-changelog.mjs` でタグ対応の節を抜き出し **Release 本文に自動投入**。案内 HTML コメントは `[Unreleased]` の**外**に置く（節内だと本文へ混入）。初回 `v0.1.0` はバンプ不要でタグのみ。手順詳細は README「リリース手順」。**この一連はスキル `/release`（`.claude/skills/release/SKILL.md`）に手順化済み**＝「リリースして」でフェーズ順に実行される（CHANGELOG の書き方基準・失敗時対応も同ファイルに集約。手順を変えたら SKILL.md も更新すること）。
+リリース手順（バージョン管理）: **`package.json` の `version` が版の唯一の正**（`app.getVersion()`／インストーラ名／設定フッタ表示が全部これ）、**`CHANGELOG.md`（Keep a Changelog 形式）がリリースノートの正**。**リリースの合図は「master に載った version の変化」**＝`.github/workflows/release.yml` が master への push で走り、`package.json` の version に対応するタグが未作成なら CHANGELOG を検証してタグを作り、`build.yml` を `workflow_call` で呼んで両OSビルド＋Release 公開まで行う（version 未変化なら即 no-op＝通常の PR マージでは何も起きない）。流れは①`CHANGELOG.md` の `## [Unreleased]` 節に変更を書く（**Claude Code に「前タグ以降の変更を CHANGELOG.md の [Unreleased] に追記して」と頼む手動トリガ**。自動生成はしない）→ コミット ②`npm version patch`（`version` フック `tools/stamp-changelog.mjs` が `[Unreleased]`→`## [x.y.z] - 日付` に置換＋新しい空 `[Unreleased]` を作り、`package.json`＋`CHANGELOG.md` の版コミットを生成。**ローカルにできるタグは `git tag -d` で捨てる＝タグを打つのは CI**）③`claude/*` ブランチへ push して PR を作る → **ユーザーがマージした時点で公開**。案内 HTML コメントは `[Unreleased]` の**外**に置く（節内だと本文へ混入）。**エージェントは `master` にも `refs/tags/*` にも push できず（403）、`actions: write` も無いので `workflow_dispatch` も叩けない**（実測）。だから合図を version 変化に置いている＝**`git push --follow-tags` に戻さない・`build.yml` を「タグ push で起きる」前提に戻さない**（`GITHUB_TOKEN` が作ったタグは workflow を起こさないため `release.yml` から直接呼んでいる）。検証は `tools/extract-changelog.mjs --strict`（非 strict は節が空でもフォールバック文字列を返すので検証に使えない）。経緯・不採用案・逆戻りガードは `docs/release-flow.md`、手順詳細は README「リリース手順」。**この一連はスキル `/release`（`.claude/skills/release/SKILL.md`）に手順化済み**＝「リリースして」でフェーズ順に実行される（CHANGELOG の書き方基準・失敗時対応も同ファイルに集約。手順を変えたら SKILL.md も更新すること）。
 
 PR に動作確認用のビルド済みバイナリを付ける（**クラウドセッションから Windows バイナリを出す唯一の経路**）: `.github/workflows/build.yml` は **`pull_request`（base=master）でも走り、PR の head SHA をビルドして Artifacts（`dayglassbar-win`/`dayglassbar-mac`）を出す**。PR 本文にはその **run の `html_url`** を貼る。**GitHub の PR にファイルを「添付」することはできない**（コメント添付は Web UI 専用＋`.exe` は許可拡張子外）ので、リンク以外の形は無い。**エージェントのトークンには Actions の write が無く `workflow_dispatch` は 403 になる**ので dispatch を試さない。**Linux コンテナでの `dist:win` も Wine 必須＋OAuth client_id 不在で不可**なので試さない。**この一連はスキル `/pr-build`（`.claude/skills/pr-build/SKILL.md`）に手順化済み**（既存 PR の自動作成に注意・Artifact 直リンクは失効するので使わない等の落とし穴も同ファイル。手順を変えたら SKILL.md も更新すること）。
 
@@ -90,6 +91,7 @@ DAYGLASSBAR_DEBUG=1 npm start
 - 設計判断（スタック選定・ホバー方式・既知の制限）: `docs/design.md`
 - プロダクト原則（明示指示がなくても守る一般方針）: `docs/product-principles.md`
 - アイコン決定記録（経緯・不採用案・逆戻りガード）: `docs/icon-design.md`
+- リリースフローの決定記録（エージェントが master/タグ/`workflow_dispatch` を叩けない実測・合図を version 変化に置いた理由・ラベルゲート等の不採用案・`GITHUB_TOKEN` のタグでは workflow が起きない件・逆戻りガード）: `docs/release-flow.md`
 - 常時最前面の決定記録（ポーリング再宣言採用の経緯・代替案=blur/ネイティブの不採用理由・逆戻りガード・問題時の手順）: `docs/always-on-top.md`
 - カレンダー連携の決定記録（OAuth＋PKCE・Google は client_secret 必須/Microsoft は不要・ICS不採用・依存ゼロ・秘匿分離・終日除外・ポーリング頻度/クォータ・push通知非採用・逆戻りガード・OAuth アプリ登録手順）: `docs/calendar-integration.md`
 - Google OAuth 一般公開の手順書（プライバシーポリシー・同意画面の本番化・sensitive scope 審査・テスト運用時の7日失効の注意。未実施）: `docs/google-oauth-publishing.md`

@@ -1,0 +1,87 @@
+name: release
+
+# master に入った版バンプを拾って、タグ作成と配布ビルド／Release 公開まで走らせる。
+#
+# なぜ push トリガなのか: クラウドセッションのエージェントは Actions の write を持たず、
+# workflow_dispatch / repository_dispatch を叩けない（403 Resource not accessible by
+# integration）。エージェントが起こせるのは「claude/* への push」と「PR の作成・更新」だけ
+# なので、リリースの合図は *master に載った package.json の version 変化* に置いてある。
+# version を上げるのは /release スキルだけなので、通常の PR がマージされても tag ジョブは
+# 「タグが既にある」で即 no-op になる。経緯と不採用案は docs/release-flow.md。
+#
+# 逆戻りガード:
+#   - build.yml を「タグ push で起きる」前提に戻さないこと。GITHUB_TOKEN が作ったタグは
+#     workflow を起こさない（GitHub の仕様）ので、ここから workflow_call で直接呼んでいる。
+#   - paths フィルタを付けないこと。CHANGELOG 検証で落ちたあと package.json 以外を直した
+#     push でリトライできなくなる。version 未変化の push は下の tag ジョブが即終了する。
+
+on:
+  push:
+    branches:
+      - master
+  # 検証で落ちた回のやり直し用（人間が Actions タブから叩く。エージェントは叩けない）。
+  workflow_dispatch:
+
+jobs:
+  # 版バンプの検出とタグ作成。ここを通らない限りビルドもリリースも走らない。
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # タグを作成して push するため
+    outputs:
+      # 'true' のときだけ下の build ジョブが動く。
+      released: ${{ steps.gate.outputs.released }}
+      tag: ${{ steps.gate.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 既存タグを見るため（浅いクローンだとタグが来ない）
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Decide whether this commit releases
+        id: gate
+        run: |
+          set -euo pipefail
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          echo "version=${VERSION}"
+
+          # 既にタグがある = この push は版バンプではない（通常の PR マージ）。何もしない。
+          if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+            echo "tag ${TAG} already exists — nothing to release"
+            echo "released=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # ここから先は「新しい版が master に載った」ケース。中身の検証を先に済ませる。
+          # --strict は節が無い/空なら非ゼロで落ちる（tools/extract-changelog.mjs）。
+          node tools/extract-changelog.mjs --strict "${VERSION}" > /dev/null
+
+          echo "released=true" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push the tag
+        if: steps.gate.outputs.released == 'true'
+        env:
+          TAG: ${{ steps.gate.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              tag -a "$TAG" -m "$TAG"
+          git push origin "refs/tags/${TAG}"
+
+  # 配布ビルドと Release 公開。build.yml をそのまま呼ぶ（タグ push では起きないため）。
+  build:
+    needs: tag
+    if: needs.tag.outputs.released == 'true'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/build.yml
+    with:
+      ref: ${{ needs.tag.outputs.tag }}
+      release_tag: ${{ needs.tag.outputs.tag }}
+    secrets: inherit
