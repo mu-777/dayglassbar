@@ -17,6 +17,8 @@ tools/stamp-changelog.mjs がこの [Unreleased] 見出しを `## [x.y.z] - YYYY
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-02
+
 ### Added
 
 - トレイメニューに「一時的に非表示（翌日に復帰）」を追加。もう一度押せばすぐ戻り、押さなくても翌日には自動で復帰する
@@ -62,6 +64,7 @@ tools/stamp-changelog.mjs がこの [Unreleased] 見出しを `## [x.y.z] - YYYY
 - 紹介・配布用の静的サイト（`web/`・GitHub Pages）。DL リンクは `releases/latest` を自動反映。
 - Ko-fi による任意の寄付導線。
 
-[Unreleased]: https://github.com/mu-777/dayglassbar/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/mu-777/dayglassbar/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mu-777/dayglassbar/releases/tag/v0.2.0
 [0.1.1]: https://github.com/mu-777/dayglassbar/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mu-777/dayglassbar/releases/tag/v0.1.0
