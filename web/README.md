@@ -11,6 +11,7 @@
 | `styles.css` | アプリアイコン由来のダークテーマ（濃紺＋クールブルー1色）。 |
 | `app.js` | 英/日トグル（catalog 内蔵）・OS 判定・GitHub Releases のライブ取得。 |
 | `assets/` | 画像（`icon.png`・`og.png`＝OG カード・`kofi_symbol.svg`）。実スクショもここに置く。 |
+| `sitemap.xml` | 検索エンジン向けのURL一覧（3ページ）。**手動管理**＝ページを増やしたらここにも足す。 |
 | `.nojekyll` | Jekyll 処理を無効化（無害。将来ブランチ配信へ切替時の保険）。 |
 
 ## 公開のしくみ
@@ -81,7 +82,9 @@ Android の Chrome は、ユーザーが意図して設定していなくても 
 時刻にしてから OS のスクショ機能で撮ります。（リポジトリの
 `tools/capture-bar.mjs` でバー窓を描画して撮ることもできます。）
 
-## Google Search Console（サイト所有権確認）
+## Google Search Console / SEO
+
+### サイト所有権確認
 
 `index.html` の `<head>` に `<meta name="google-site-verification" ...>` が
 入っています。プロパティは **URL プレフィックス型**
@@ -94,6 +97,33 @@ Android の Chrome は、ユーザーが意図して設定していなくても 
   使えなくなる。確認後も残すこと（逆戻りガード）。
 - 検索に載るのは所有権確認の結果ではない。確認は「GSC で状況を見られる」だけで、
   インデックス登録は Googlebot のクロール次第。
+
+### sitemap.xml と canonical
+
+`web/sitemap.xml` に3ページの URL を列挙し、各 HTML に
+`<link rel="canonical">`（絶対 URL）を置いています。**両者の URL は完全一致**
+させること（トップは `.../dayglassbar/`＝`index.html` を付けない）。
+
+- **`robots.txt` は置いていない**。GitHub Pages のプロジェクトサイトでは
+  `/dayglassbar/robots.txt` はクローラに読まれず、ユーザーサイト直下の
+  `https://mu-777.github.io/robots.txt`（別リポジトリ `mu-777.github.io` が必要）
+  だけが有効なため。サイトマップは **GSC の「サイトマップ」画面から
+  `https://mu-777.github.io/dayglassbar/sitemap.xml` を手動送信**する。
+- `lastmod` / `changefreq` / `priority` は**書かない**。手動更新の `lastmod` は
+  必ず腐り、Google は信頼できない `lastmod` を無視する。後二者はそもそも使われない。
+- **ページを追加したら `sitemap.xml` にも `<url>` を足す**（自動生成なし＝
+  `pages.yml` にビルド工程を持たせない方針を維持するため）。
+
+### 日本語ページ（未対応・意図的）
+
+`index.html` は `lang="en"` 固定＋`app.js` の JS で文言を差し替える方式のため、
+**日本語版としてはインデックスされない**（Google は言語ごとに別 URL を持つことを
+推奨。[Localized Versions of your Pages](https://developers.google.com/search/docs/specialty/international/localized-versions)）。
+日本語検索からの流入は現状ほぼ期待できないが、想定流入経路が GitHub / SNS 中心で
+あることと、`/ja/` を作ると「catalog が文言の唯一の正」「ビルド工程なし」の2つの
+方針を崩すことから、**当面は英語ページのみで運用する**という判断（保留）。
+方針を変える場合は `web/ja/*.html` を catalog から生成するスクリプト＋
+`hreflang`（`x-default` 含む）をセットで入れること。
 
 ## Web Analytics（Cloudflare）
 
