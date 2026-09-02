@@ -17,6 +17,27 @@ tools/stamp-changelog.mjs がこの [Unreleased] 見出しを `## [x.y.z] - YYYY
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-02
+
+### Added
+
+- トレイメニューに「一時的に非表示（翌日に復帰）」を追加。もう一度押せばすぐ戻り、押さなくても翌日には自動で復帰する
+
+### Changed
+
+- スケジュールの時刻をキーボード入力から時計の入力欄（OS標準）で選ぶ形に変更
+- 日跨ぎの指定方法を変更。終了が開始と同じかそれより前なら翌日扱いになる（22:00〜02:00 = 翌2:00まで）。`25:00` のような24時超表記の既存設定もそのまま動く
+- 曜日ごとの設定を「期間」と「休憩」の2つの枠に分けて表示するようにした
+- 設定画面「表示」の項目を関連するものごとに行でまとめ直した
+- 目盛りを区間の開始からの間隔ではなく時計に合わせて配置するようにした（間隔60分なら開始が9:30でも毎正時に線が出る）
+- 設定の保存・インポート・初期化を行うと、一時的な非表示を解除してバーを表示するようにした
+- ディスプレイの選択欄で、現在つながっていないディスプレイに「未接続」と表示するようにした
+
+### Fixed
+
+- 再起動後に表示先ディスプレイの指定が失われ、プライマリに戻ってしまうことがあるのを修正
+- Outlook（ローカル）連携で、日本語の予定タイトルやカレンダー名が文字化けしたり、予定が読み込めなくなることがあるのを修正
+
 ## [0.1.1] - 2026-07-14
 
 ### Added
@@ -43,6 +64,7 @@ tools/stamp-changelog.mjs がこの [Unreleased] 見出しを `## [x.y.z] - YYYY
 - 紹介・配布用の静的サイト（`web/`・GitHub Pages）。DL リンクは `releases/latest` を自動反映。
 - Ko-fi による任意の寄付導線。
 
-[Unreleased]: https://github.com/mu-777/dayglassbar/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/mu-777/dayglassbar/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/mu-777/dayglassbar/releases/tag/v0.2.0
 [0.1.1]: https://github.com/mu-777/dayglassbar/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mu-777/dayglassbar/releases/tag/v0.1.0

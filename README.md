@@ -124,25 +124,33 @@ Release は作られません（`v*` タグの push のときだけ）。Artifac
 [`.github/workflows/build.yml`](.github/workflows/build.yml) が `windows-latest` / `macos-latest` ランナーでそれぞれネイティブにビルドします。`npm ci` を使うため `package-lock.json` をコミットしておきます。
 
 - **手元確認用ビルド**: Actions タブ → `build` → *Run workflow*。Release は作られず、各 run の Artifacts（`dayglassbar-win` / `dayglassbar-mac`）から `.exe` / `.dmg` をダウンロードします。Artifacts を閲覧できる範囲はリポジトリの可視性に従います（public は誰でも閲覧できます）。
-- **配布用ビルド**: `v*` タグを push すると両OSをビルドし、GitHub Release に `.exe` / `.dmg` を添付します。**リリース本文は [`CHANGELOG.md`](CHANGELOG.md) の該当バージョンの節**を workflow が抜き出して自動で入れます（下記「リリース手順」）。
+- **配布用ビルド**: 版を上げたコミットが master に入ると [`release.yml`](.github/workflows/release.yml) がタグを作り、この workflow を呼んで両OSをビルドし、GitHub Release に `.exe` / `.dmg` を添付します（`v*` タグを直接 push しても同じ結果になります）。**リリース本文は [`CHANGELOG.md`](CHANGELOG.md) の該当バージョンの節**を workflow が抜き出して自動で入れます（下記「リリース手順」）。
 - **カレンダーの資格情報**: ローカルの `client-ids.local.json` は gitignore のため CI には渡りません。配布物で接続を有効にするには、GitHub の Settings → Secrets and variables → Actions に登録します — **Variables**: `DAYGLASSBAR_GOOGLE_CLIENT_ID` / `DAYGLASSBAR_MS_CLIENT_ID`、**Secrets**: `DAYGLASSBAR_GOOGLE_CLIENT_SECRET`（Google のトークン交換に必要）。workflow がビルド前に `client-ids.local.json` を生成して同梱します。未登録ならビルドは成功し、該当プロバイダの接続のみ無効になります。詳細は [`docs/calendar-integration.md`](docs/calendar-integration.md)。
 
 #### リリース手順
 
-バージョンの唯一の正は `package.json` の `version` です（Electron の `app.getVersion()`／インストーラのファイル名／設定ウィンドウのフッタ表示がすべてこれを読みます）。リリースノートの正は [`CHANGELOG.md`](CHANGELOG.md)（[Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 形式）。両者とタグを食い違わせないため、次の順で行います。
+バージョンの唯一の正は `package.json` の `version` です（Electron の `app.getVersion()`／インストーラのファイル名／設定ウィンドウのフッタ表示がすべてこれを読みます）。リリースノートの正は [`CHANGELOG.md`](CHANGELOG.md)（[Keep a Changelog](https://keepachangelog.com/ja/1.1.0/) 形式）。
+
+**リリースの合図は「master に載った version の変化」です。** [`.github/workflows/release.yml`](.github/workflows/release.yml) が master への push で走り、`package.json` の version に対応するタグが未作成なら、`CHANGELOG.md` に該当版の節があることを確かめてからタグを作り、[`build.yml`](.github/workflows/build.yml) を呼んで両OSのビルドと Release 公開まで行います。version が変わっていなければ何もしないので、通常の PR をマージしてもリリースは起きません。
 
 1. **`CHANGELOG.md` の `## [Unreleased]` 節に変更点を書く**（前タグからの差分をもとに埋める。分類は Added / Changed / Fixed 等）。この執筆は Claude Code に「前タグ以降の変更を `CHANGELOG.md` の `[Unreleased]` に追記して」と依頼するのが早い（自動生成ではなくレビュー前提の手動トリガ）。書けたら通常どおりコミットします。
-2. **`npm version patch`**（`minor` / `major` も可）を実行。`package.json` を上げ、`version` フックの [`tools/stamp-changelog.mjs`](tools/stamp-changelog.mjs) が `[Unreleased]` を `## [x.y.z] - YYYY-MM-DD` に置き換えて新しい空の `[Unreleased]` を作り、`package.json` と `CHANGELOG.md` を含む版コミット＋`v<x.y.z>` タグを一括生成します。
-3. **`git push --follow-tags`** で push → Actions が両OSをビルドし、[`tools/extract-changelog.mjs`](tools/extract-changelog.mjs) がタグに対応する `CHANGELOG.md` の節を抜き出して Release 本文にして公開します。
+2. **`npm version patch`**（`minor` / `major` も可）を実行。`package.json` を上げ、`version` フックの [`tools/stamp-changelog.mjs`](tools/stamp-changelog.mjs) が `[Unreleased]` を `## [x.y.z] - YYYY-MM-DD` に置き換えて新しい空の `[Unreleased]` を作り、`package.json` と `CHANGELOG.md` を含む版コミットを生成します。**同時に作られるローカルタグは `git tag -d` で捨てます**（タグを打つのは CI）。
+3. **master にマージする**（ブランチで作業した場合は Pull Request 経由）。マージされた時点で `release.yml` がタグを作り、[`tools/extract-changelog.mjs`](tools/extract-changelog.mjs) が抜き出した該当節を本文にして Release が公開されます。
 
 ```bash
 # 1. CHANGELOG.md の [Unreleased] を埋めてコミット（Claude Code に依頼可）
-# 2〜3:
-npm version patch        # 0.1.0 → 0.1.1。CHANGELOG を stamp し、版コミット＋v0.1.1 タグを作る
-git push --follow-tags   # push → Actions がビルド＆該当節を本文にして Release 公開
+# 2:
+npm version patch        # 0.1.0 → 0.1.1。CHANGELOG を stamp し、版コミットを作る
+git tag -d v0.1.1        # ローカルタグは捨てる（タグは CI が打つ）
+# 3: master へ push（またはブランチを push して PR をマージ）
+git push origin master
 ```
 
-初回リリース（`v0.1.0`）は `package.json` が既に `0.1.0`・`CHANGELOG.md` の `[0.1.0]` も記入済みのため、バンプ不要でタグだけ打ちます: `git tag v0.1.0 && git push --follow-tags`。
+`release.yml` は `CHANGELOG.md` に該当版の節が無い／空のときはタグを打たずに失敗します。CHANGELOG を直して master に入れ直せば、その push で自動的に再試行されます。
+
+`v*` タグを直接 push する従来の経路も残してあるため、手元でタグを打ってリリースすることもできます（`git push --follow-tags`）。この場合 `release.yml` は version 未変化として何もしません。
+
+Claude Code のクラウドセッションからは `master` にも `refs/tags/*` にも push できない（403）ため、そこでは必ず Pull Request 経由になります。経緯と設計判断は [`docs/release-flow.md`](docs/release-flow.md)。
 
 未署名のため、配布先では初回のみ次の一手間が必要です。
 
