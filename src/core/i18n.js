@@ -67,6 +67,7 @@ export const MESSAGES = {
     'settings.calendarNote':
       'Tint the times you are busy on the bar; titles appear on hover. Turn on Google and/or Outlook below, each with its own color. OAuth sign-in is stored encrypted on this device and is never exported.',
     'calendar.showGoogle': 'Show Google Calendar events',
+    'calendar.googleBetaNote': 'Beta: sign-in is limited to registered testers for now.',
     'calendar.showOutlook': 'Show Outlook events',
     'field.calendarColor': 'Event color',
     'calendar.outlookMethod': 'Outlook connection',
@@ -247,6 +248,7 @@ export const MESSAGES = {
     'settings.calendarNote':
       '予定がある時間帯をバー上で色付けします（タイトルはホバーで表示）。下で Google / Outlook を個別にオンにでき、色もそれぞれ設定できます。OAuth のサインイン情報はこの端末に暗号化保存され、エクスポートには含まれません。',
     'calendar.showGoogle': 'Google カレンダーの予定を表示',
+    'calendar.googleBetaNote': 'ベータ版のため、現在は登録済みのテストユーザーのみ接続できます。',
     'calendar.showOutlook': 'Outlook の予定を表示',
     'field.calendarColor': '予定の色',
     'calendar.outlookMethod': 'Outlook の接続方法',
@@ -427,6 +429,7 @@ export const MESSAGES = {
     'settings.calendarNote':
       '在状态条上为你忙碌的时段着色（标题在悬停时显示）。可在下方分别开启 Google / Outlook，并各自设定颜色。OAuth 登录信息加密保存在本机，且不会被导出。',
     'calendar.showGoogle': '显示 Google 日历日程',
+    'calendar.googleBetaNote': '测试版：目前仅限已登记的测试用户连接。',
     'calendar.showOutlook': '显示 Outlook 日程',
     'field.calendarColor': '日程颜色',
     'calendar.outlookMethod': 'Outlook 连接方式',
