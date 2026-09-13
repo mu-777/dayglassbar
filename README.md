@@ -117,6 +117,8 @@ npm run dist:win
 | `dayglassbar-win` | `DayGlassBar Setup <version>.exe`（インストーラ）と `DayGlassBar <version>.exe`（portable） |
 | `dayglassbar-mac` | `.dmg`（arm64） |
 
+**リリース以外のビルド（PR / 手動実行）の `<version>` には、ビルドした commit の短い SHA が付きます**（例: `0.2.0-16b5d19`）。ファイル名だけでなく設定ウィンドウのフッタ表示・診断ダンプの `environment.json` も同じ値になるので、インストール後もどのコミットのバイナリか分かります。`v*` タグ／リリース経路のビルドは `package.json` の version そのまま（例: `0.2.0`）です。この付加は CI のワークスペース上で `package.json` を書き換えて行い、コミットはしません。なお SHA 付きバージョンは設定フッタの「更新を確認」では解釈できないため、常に「最新」と表示されます。
+
 Release は作られません（`v*` タグの push のときだけ）。Artifact のダウンロードには GitHub へのログインが必要で、既定で 90 日で失効します。連続で push した場合、古い run は `concurrency` で打ち切られ最新だけが残ります。
 
 ### GitHub Actions でビルドする

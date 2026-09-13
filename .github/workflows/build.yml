@@ -73,6 +73,23 @@ jobs:
 
       - run: npm ci
 
+      # リリース以外（PR / 手動実行）のビルドは、成果物名とアプリ内表示のバージョンに短い SHA を
+      # 付ける＝どのコミットのバイナリかインストール後も判別できるようにする（レビュー用に複数の
+      # PR ビルドが並ぶので、`0.2.0` のままでは取り違える）。`0.2.0.16b5d19` のような4セグメント
+      # 表記は semver 違反で electron-builder が弾くため、prerelease として足す（`0.2.0-16b5d19`）。
+      # app.getVersion() は package.json をそのまま返すので、設定フッタ・診断ダンプにも波及する。
+      # 書き換えは CI のワークスペース限りでコミットしない（`npm version` は version フックが
+      # CHANGELOG を stamp してしまうので使わない）。npm ci の *後* に置くのは、lock の root
+      # version と食い違わせないため。
+      # 既知の穴: 7桁が全数字かつ先頭ゼロ（確率 ~0.4%）だと semver の数値識別子として不正になり
+      # ビルドが落ちる。踏んだら SHORT_SHA に英字を1文字前置する（例: g16b5d19）。
+      - name: Stamp build version (non-release)
+        if: inputs.release_tag == '' && !startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          SHORT_SHA=$(git rev-parse --short=7 HEAD)
+          node -e "const fs=require('fs'),p='package.json',j=JSON.parse(fs.readFileSync(p,'utf8'));j.version=j.version+'-'+process.argv[1];fs.writeFileSync(p,JSON.stringify(j,null,2)+'\n');console.log('build version =',j.version)" "$SHORT_SHA"
+
       # Materialize the OAuth credentials into the gitignored local file so they are bundled
       # into the artifact. config.js reads env at *runtime*, which the shipped app doesn't
       # have, so the values must be written to disk before packaging (files: src/**/* picks it
