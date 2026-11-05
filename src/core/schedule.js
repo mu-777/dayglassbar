@@ -174,22 +174,36 @@ export function getNextInterval(schedule, nowMs, horizonDays = 8) {
   return null;
 }
 
-// Drop override entries that are safely in the past, so the list doesn't grow forever
-// (D-3). The cutoff is *yesterday's* dateKey, not today's: an overnight interval (end >
-// 24:00) that started yesterday can still be running into today, so yesterday's entry
-// must survive one extra day past its calendar date. dateKeyOf's 'YYYY-MM-DD' format
-// sorts identically to date order under plain string comparison, so `<` works directly
-// without parsing. Keys that don't parse as a date are left alone (never pruned).
-export function prunePastOverrides(overrides, nowMs) {
-  const cutoff = dateKeyOf(addDays(new Date(nowMs), -1));
+// Drop override entries that can no longer affect the bar, so the list doesn't grow
+// forever (D-3). Date D's entry goes once now has passed ALL of:
+//   1. the end of D itself (next local midnight) — today's row never vanishes mid-day;
+//   2. the override's own end (overnight entries reach into D+1);
+//   3. the weekly record's end for D's weekday — resolveDay falls back to it once the
+//      override is gone, so deleting earlier would revive that interval (e.g. a "day off"
+//      override over a 22:00–02:00 weekday, removed at 01:00, would bring the bar back).
+// Disabled records have no end and contribute nothing beyond (1). Records whose times
+// don't parse yield NaN, which never compares as passed, so they are kept. Keys that
+// don't parse as a date are left alone (never pruned).
+export function prunePastOverrides(schedule, nowMs) {
+  const overrides = (schedule && schedule.overrides) || {};
+  const weeklyOnly = { weekly: (schedule && schedule.weekly) || {}, overrides: {} };
+  const endOf = (rec, date) => (rec.enabled ? msAt(date, rec.endMin) : -Infinity);
   const kept = {};
   let changed = false;
-  for (const [key, rec] of Object.entries(overrides || {})) {
-    if (parseDateKey(key) && key < cutoff) {
-      changed = true; // strictly before yesterday: drop it
-      continue;
+  for (const [key, raw] of Object.entries(overrides)) {
+    const date = parseDateKey(key);
+    if (date) {
+      const lastEffectMs = Math.max(
+        msAt(date, 24 * 60),
+        endOf(normalizeDayRecord(raw), date),
+        endOf(resolveDay(weeklyOnly, date), date),
+      );
+      if (nowMs >= lastEffectMs) {
+        changed = true;
+        continue;
+      }
     }
-    kept[key] = rec;
+    kept[key] = raw;
   }
   return { changed, overrides: kept };
 }

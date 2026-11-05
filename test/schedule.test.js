@@ -238,30 +238,60 @@ test('getNextInterval: no enabled day within the horizon returns null', () => {
   assert.equal(getNextInterval(schedule, MON(8)), null);
 });
 
-test('prunePastOverrides: drops dates strictly before yesterday, keeps yesterday/today/future', () => {
-  const overrides = {
+const pruneKeys = (schedule, nowMs) => Object.keys(prunePastOverrides(schedule, nowMs).overrides).sort();
+
+test('prunePastOverrides: drops ended past dates (yesterday included), keeps today/future', () => {
+  const schedule = weekly({});
+  schedule.overrides = {
     '2026-06-10': day('9:00', '17:00'), // long past -> removed
-    '2026-06-14': day('9:00', '17:00'), // yesterday -> kept (possible overnight spillover)
+    '2026-06-14': day('9:00', '17:00'), // yesterday, ended -> removed
     '2026-06-15': day('9:00', '17:00'), // today -> kept
     '2026-06-20': day('9:00', '17:00'), // future -> kept
   };
-  const { changed, overrides: pruned } = prunePastOverrides(overrides, MON(12));
+  const { changed } = prunePastOverrides(schedule, MON(0, 5));
   assert.equal(changed, true);
-  assert.deepEqual(Object.keys(pruned).sort(), ['2026-06-14', '2026-06-15', '2026-06-20']);
+  assert.deepEqual(pruneKeys(schedule, MON(0, 5)), ['2026-06-15', '2026-06-20']);
+});
+
+test('prunePastOverrides: today is kept until midnight even after its interval ended', () => {
+  const schedule = weekly({});
+  schedule.overrides = { '2026-06-15': day('9:00', '17:00') };
+  assert.deepEqual(pruneKeys(schedule, MON(23, 59)), ['2026-06-15']);
+  assert.deepEqual(pruneKeys(schedule, TUE(0)), []);
+});
+
+test('prunePastOverrides: an overnight override survives until its own end', () => {
+  const schedule = weekly({});
+  schedule.overrides = { '2026-06-14': day('22:00', '2:00') }; // Sun 22:00 -> Mon 02:00
+  assert.deepEqual(pruneKeys(schedule, MON(1, 59)), ['2026-06-14']);
+  assert.deepEqual(pruneKeys(schedule, MON(2)), []);
+});
+
+test('prunePastOverrides: kept until the weekly fallback it hides has ended too', () => {
+  // Sunday weekly is 22:00-02:00; a "day off" override hides it. Removing the override at
+  // 01:00 Monday would revive the weekly interval, so it must wait until 02:00.
+  const schedule = weekly({ sun: day('22:00', '2:00') });
+  schedule.overrides = { '2026-06-14': OFF };
+  assert.deepEqual(pruneKeys(schedule, MON(1)), ['2026-06-14']);
+  assert.equal(getActiveInterval(schedule, MON(1)), null); // the override is still in force
+  assert.deepEqual(pruneKeys(schedule, MON(2)), []);
 });
 
 test('prunePastOverrides: leaves keys that are not a valid date untouched', () => {
-  const overrides = { 'not-a-date': day('9:00', '17:00'), '2026-06-10': day('9:00', '17:00') };
-  const { changed, overrides: pruned } = prunePastOverrides(overrides, MON(12));
+  const schedule = weekly({});
+  schedule.overrides = { 'not-a-date': day('9:00', '17:00'), '2026-06-10': day('9:00', '17:00') };
+  const { changed } = prunePastOverrides(schedule, MON(12));
   assert.equal(changed, true);
-  assert.deepEqual(Object.keys(pruned).sort(), ['not-a-date']);
+  assert.deepEqual(pruneKeys(schedule, MON(12)), ['not-a-date']);
 });
 
-test('prunePastOverrides: nothing to drop reports changed=false', () => {
-  const overrides = { '2026-06-15': day('9:00', '17:00'), '2026-06-20': day('9:00', '17:00') };
-  const { changed, overrides: pruned } = prunePastOverrides(overrides, MON(12));
+test('prunePastOverrides: nothing to drop reports changed=false; tolerates missing overrides', () => {
+  const schedule = weekly({});
+  schedule.overrides = { '2026-06-15': day('9:00', '17:00'), '2026-06-20': day('9:00', '17:00') };
+  const { changed, overrides } = prunePastOverrides(schedule, MON(12));
   assert.equal(changed, false);
-  assert.deepEqual(pruned, overrides);
+  assert.deepEqual(overrides, schedule.overrides);
+  assert.equal(prunePastOverrides({ weekly: schedule.weekly }, MON(12)).changed, false);
 });
 
 test('ticks: hourly interior ticks', () => {

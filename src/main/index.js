@@ -95,19 +95,11 @@ function main() {
     // genuinely absent the stored choice is left untouched, so it is restored on reconnect.
     healDisplayChoice();
 
-    // D-3: date overrides would otherwise accumulate forever. Prune anything strictly
-    // before yesterday on every startup — yesterday itself is kept in case an overnight
-    // interval that started yesterday is still running into today (prunePastOverrides).
-    {
-      const before = store.get().schedule.overrides;
-      const { changed, overrides } = prunePastOverrides(before, timeSource.now());
-      if (changed) {
-        const next = structuredClone(store.get());
-        next.schedule.overrides = overrides;
-        store.save(next);
-        log.info('pruned past overrides', { count: Object.keys(before).length - Object.keys(overrides).length });
-      }
-    }
+    // D-3: date overrides would otherwise accumulate forever. Pruned on startup, and again
+    // whenever the settings window reads settings (settings:get) and on every save/import
+    // (withPrunedOverrides) — the app is resident and rarely restarted, so startup alone
+    // left past rows visible in the form for days.
+    pruneStoredOverrides('startup');
 
     calendar = createCalendarService({
       timeSource,
@@ -268,14 +260,47 @@ function main() {
     }
   }
 
+  // Drop override dates that can no longer affect the bar (core prunePastOverrides: past
+  // the date itself, its own end and the weekly fallback's end). Returns a clone when
+  // something was dropped, the same object otherwise — callers save only on `changed`.
+  function withPrunedOverrides(settings) {
+    const { changed, overrides } = prunePastOverrides(settings?.schedule, timeSource.now());
+    if (!changed) return { changed: false, settings };
+    const next = structuredClone(settings);
+    next.schedule.overrides = overrides;
+    return { changed: true, settings: next };
+  }
+
+  function pruneStoredOverrides(reason) {
+    const before = store.get();
+    const { changed, settings } = withPrunedOverrides(before);
+    if (!changed) return;
+    try {
+      store.save(settings);
+      log.info('pruned past overrides', {
+        reason,
+        count: Object.keys(before.schedule.overrides).length - Object.keys(settings.schedule.overrides).length,
+      });
+    } catch (err) {
+      log.warn('pruning past overrides failed (write)', err); // retried on the next trigger
+    }
+  }
+
   function registerIpc() {
     const ipcLog = log.child('ipc');
-    ipcMain.handle('settings:get', () => store.get());
+    ipcMain.handle('settings:get', () => {
+      pruneStoredOverrides('settings:get'); // the form never shows past dates
+      return store.get();
+    });
     ipcMain.handle('settings:save', (_e, candidate) => {
       const result = validateSettings(candidate);
       if (result.ok) {
         try {
-          store.save(candidate); // store.onChange fans out to the bar etc.
+          // A form left open across days, or a past date added by hand, would otherwise
+          // write past rows back. `pruned` tells the form to reload so it matches storage.
+          const { changed, settings } = withPrunedOverrides(candidate);
+          store.save(settings); // store.onChange fans out to the bar etc.
+          if (changed) result.pruned = true;
           clearTemporaryHide(); // "Save & apply" has to end with the bar actually on screen
           ipcLog.debug('settings saved');
         } catch (err) {
@@ -434,7 +459,8 @@ function main() {
         return { ok: false, errors: result.errors };
       }
       try {
-        store.save(candidate); // store.onChange fans out to the bar etc.
+        // An older export can carry long-past dates; drop them like a save does.
+        store.save(withPrunedOverrides(candidate).settings); // store.onChange fans out to the bar etc.
         clearTemporaryHide(); // an imported config should be visible, same as a save
       } catch (err) {
         ipcLog.error('settings import failed (write)', err);
