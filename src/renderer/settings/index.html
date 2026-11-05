@@ -159,6 +159,10 @@
             <input type="color" id="f-google-color" />
           </label>
         </div>
+        <!-- Google OAuth is still in verification, so only testers registered in the Cloud
+             console can sign in. The button stays enabled (testers must be able to use it);
+             the note is what keeps everyone else from reading a rejected sign-in as a bug. -->
+        <p class="note warn" data-i18n="calendar.googleBetaNote"></p>
         <div class="cal-conn" id="google-conn"></div>
         <div class="cal-calendars" id="google-cals"></div>
       </div>

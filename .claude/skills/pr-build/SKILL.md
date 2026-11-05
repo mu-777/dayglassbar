@@ -96,6 +96,9 @@ mcp__github__actions_list(method="list_workflow_run_artifacts", resource_id="<ru
     `DayGlassBar <version>.exe`（portable）
   - `dayglassbar-mac` … `.dmg`（arm64）
 
+リリース以外のビルドなので `<version>` には短い SHA が付きます（例: `0.2.0-16b5d19`）。
+設定ウィンドウのフッタも同じ表記になるため、インストール後もこのビルドだと判別できます。
+
 ダウンロードには GitHub へのログインが必要で、Artifact は既定で 90 日で失効します。
 未署名ビルドなので Windows では SmartScreen の警告、macOS では Gatekeeper の
 「壊れているため開けません」が出ます（`docs/macos-signing.md` の回避手順を参照）。
