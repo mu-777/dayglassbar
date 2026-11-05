@@ -635,6 +635,7 @@
     // Validation failures come back as result.errors; a disk write failure (validation
     // passed but store.save() threw) instead comes back as a single result.error string.
     showErrors(result.errors && result.errors.length ? result.errors : result.error ? [{ message: result.error }] : []);
+    if (result.ok && result.pruned) await load(); // main dropped past override dates — mirror storage
     setStatus(result.ok ? t('status.saved') : t('status.saveFailed'));
     if (result.ok) setDirty(false);
   });
