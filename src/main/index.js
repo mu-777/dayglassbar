@@ -260,11 +260,11 @@ function main() {
     }
   }
 
-  // Drop override dates strictly before yesterday (core prunePastOverrides keeps yesterday
-  // for an overnight interval still running into today). Returns a clone when something
-  // was dropped, the same object otherwise — callers save only on `changed`.
+  // Drop override dates that can no longer affect the bar (core prunePastOverrides: past
+  // the date itself, its own end and the weekly fallback's end). Returns a clone when
+  // something was dropped, the same object otherwise — callers save only on `changed`.
   function withPrunedOverrides(settings) {
-    const { changed, overrides } = prunePastOverrides(settings?.schedule?.overrides, timeSource.now());
+    const { changed, overrides } = prunePastOverrides(settings?.schedule, timeSource.now());
     if (!changed) return { changed: false, settings };
     const next = structuredClone(settings);
     next.schedule.overrides = overrides;
