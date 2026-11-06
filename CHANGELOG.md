@@ -17,6 +17,8 @@ tools/stamp-changelog.mjs がこの [Unreleased] 見出しを `## [x.y.z] - YYYY
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-06
+
 ### Added
 
 - 設定画面の Google カレンダー欄に「ベータ版のため登録済みのテストユーザーのみ接続できる」旨の注記を表示
@@ -73,7 +75,8 @@ tools/stamp-changelog.mjs がこの [Unreleased] 見出しを `## [x.y.z] - YYYY
 - 紹介・配布用の静的サイト（`web/`・GitHub Pages）。DL リンクは `releases/latest` を自動反映。
 - Ko-fi による任意の寄付導線。
 
-[Unreleased]: https://github.com/mu-777/dayglassbar/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/mu-777/dayglassbar/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/mu-777/dayglassbar/releases/tag/v0.3.0
 [0.2.0]: https://github.com/mu-777/dayglassbar/releases/tag/v0.2.0
 [0.1.1]: https://github.com/mu-777/dayglassbar/releases/tag/v0.1.1
 [0.1.0]: https://github.com/mu-777/dayglassbar/releases/tag/v0.1.0
