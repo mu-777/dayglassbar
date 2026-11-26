@@ -11,8 +11,8 @@
 
 - **回避手順（ユーザー向け・初回のみ）**: ① `.dmg` からアプリを「アプリケーション」へドラッグ → ② ターミナルで `xattr -cr /Applications/DayGlassBar.app` を実行 → ③ 起動。quarantine 属性を消すだけで、以後は普通に起動する。macOS Tahoe でも有効（[参考](https://swissmacuser.ch/fix-macos-tahoe-app-is-damaged-and-cant-be-opened-move-trash/)）。DMG 内のアプリに直接 `xattr` しても読み取り専用ボリュームなので効かない＝**先に「アプリケーション」へコピーする手順が必須**。
 - **案内場所（三層）**: LP のヒーロー CTA は `.dmg` 直リンクのため Download 節の注意書きに到達しないまま DL が終わる穴があり、また LP 側の工夫は GitHub Releases から直接落とす人に届かない。そこで守備範囲の違う三層で案内する。
-  1. **web の Download 節の注意書き**（`web/app.js` の `download.unsigned.win` / `download.unsigned.mac`・英日）＝モーダルを閉じた後の再参照先。
-  2. **`.dmg` ダウンロードリンクのクリック時モーダル**（`web/index.html` の `#macDlDialog`・`dlmodal.*` キー・ネイティブ `<dialog>`＝依存ゼロ）＝「DL 直後」に読ませる。クリック時点の href が `.dmg` のときだけ表示し、**ダウンロードは堰き止めない**（1ページ LP における Firefox の download-thanks ページ相当。ゲート型にしない理由は下記「不採用案」）。手順3ステップ＋コマンドのコピーボタン。「ポップアップなし」はアプリの方針であり LP には適用しない、とユーザーが明示（2026-07 の議論）。
+  1. **web の Download 節の注意書き**（`web/public/app.js` の `download.unsigned.win` / `download.unsigned.mac`・英日）＝モーダルを閉じた後の再参照先。
+  2. **`.dmg` ダウンロードリンクのクリック時モーダル**（`web/public/index.html` の `#macDlDialog`・`dlmodal.*` キー・ネイティブ `<dialog>`＝依存ゼロ）＝「DL 直後」に読ませる。クリック時点の href が `.dmg` のときだけ表示し、**ダウンロードは堰き止めない**（1ページ LP における Firefox の download-thanks ページ相当。ゲート型にしない理由は下記「不採用案」）。手順3ステップ＋コマンドのコピーボタン。「ポップアップなし」はアプリの方針であり LP には適用しない、とユーザーが明示（2026-07 の議論）。
   3. **DMG の背景画像**（`assets/dmg/background.png`＋`@2x`＝`npm run dmg-bg`・`tools/gen-dmg-background.mjs`、gen-og と同じ Electron capturePage 方式・依存ゼロ）＝「失敗するその場所」に置く案内。Releases 直 DL の人にも届く。文言は**英語のみ**（画像は表示時に言語を切り替えられず、コマンド自体は言語非依存のため。日本語1行を併記した初版から 2026-07 に英語のみへ変更＝画像に多言語を焼き込まない）。レイアウトは `package.json` `build.dmg` の window 540×380／contents 座標 (130,150)/(410,150)／iconSize 100 と連動＝**座標を変えたら背景も再生成**。`@2x` は dmg-builder が `tiffutil` で multi-res TIFF に合成する（electron-builder 25 のソースで確認済み）。
   - いずれもエラー文言をそのまま書き「ファイルは壊れていない」ことを明示する（ユーザーが「壊れている」を信じて再ダウンロードを繰り返すのを防ぐ）。
 - **採用理由**: ダブルクリックだけで開けるようにする唯一の方法は Apple Developer Program（**年 US$99**）＋公証だが、個人プロジェクトのランニングコストゼロ方針と衝突する。無署名配布＋ドキュメントで `xattr` を案内するのは個人 OSS の常套手段（electron-builder の issue でもこの回避で解決が確認されている・[RyuSAK#34](https://github.com/Ecks1337/RyuSAK/issues/34) のように「README に載せるべき」と要望されるのが典型）。
@@ -36,7 +36,7 @@
 2. 「**Developer ID Application**」証明書を作成し、秘密鍵ごと `.p12` にエクスポート。
 3. GitHub Secrets に `CSC_LINK`（`.p12` の base64）と `CSC_KEY_PASSWORD` を設定 → electron-builder が自動で拾って署名する（workflow の変更は env の追加のみ）。
 4. 公証: Apple ID の**アプリ用パスワード**（または App Store Connect API キー）を作成し、Secrets `APPLE_ID` / `APPLE_APP_SPECIFIC_PASSWORD` / `APPLE_TEAM_ID` を設定。`package.json` の `build.mac` に `"notarize": true` を追加（electron-builder 25 は `@electron/notarize` 内蔵。署名時に hardened runtime は既定で有効）。
-5. 導入後の後始末: `web/app.js` の `download.unsigned.mac`（英日）・`.dmg` クリック時モーダル（`web/index.html` の `#macDlDialog`＋`dlmodal.*` キー＋`setupMacDlModal()`）・DMG 背景の xattr 手順（`tools/gen-dmg-background.mjs` をドラッグ案内だけに直して `npm run dmg-bg` で再生成）・README・`docs/distribution-channels.md` の macOS 回避手順の記述を削除する（Windows の SmartScreen 文言は別問題なので残る。下記）。
+5. 導入後の後始末: `web/public/app.js` の `download.unsigned.mac`（英日）・`.dmg` クリック時モーダル（`web/public/index.html` の `#macDlDialog`＋`dlmodal.*` キー＋`setupMacDlModal()`）・DMG 背景の xattr 手順（`tools/gen-dmg-background.mjs` をドラッグ案内だけに直して `npm run dmg-bg` で再生成）・README・`docs/distribution-channels.md` の macOS 回避手順の記述を削除する（Windows の SmartScreen 文言は別問題なので残る。下記）。
 6. **実機で「ブラウザで DL → ダブルクリックだけで起動」まで確認**してから告知する。
 
 ## 関連（このドキュメントのスコープ外）

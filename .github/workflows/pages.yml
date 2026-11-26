@@ -1,19 +1,22 @@
-name: pages
+name: pages-redirect
 
-# Publishes the static landing/release site in web/ to GitHub Pages.
-# Set-and-forget: it just uploads web/ as-is (no build step), so it runs in
-# seconds and effectively never breaks. The download links are filled in at
-# runtime by web/app.js from the GitHub Releases API, so this workflow does
-# NOT need to run on each release — only when web/ itself changes.
+# The landing site moved from GitHub Pages to Cloudflare Workers
+# (https://dayglassbar.mu-777.dev — see web/wrangler.toml and web/README.md).
+# This workflow only keeps the OLD URL (https://mu-777.github.io/dayglassbar/...)
+# alive by publishing a tiny redirect page there, so links already shared
+# (README, SNS posts, OAuth consent screen, search results) still land on the
+# new site. It does NOT publish web/ any more.
 #
-# Pages is auto-enabled by configure-pages (enablement: true) on first run, so
-# no manual repo setup is needed. Site URL: https://mu-777.github.io/dayglassbar/
+# GitHub Pages can't send HTTP redirects, so the page redirects with JS
+# (path, query and hash are kept: /dayglassbar/privacy.html -> /privacy.html,
+# which Cloudflare then 307s to /privacy) and falls back to a meta refresh to
+# the top page. The same file is served as 404.html, so every old path is
+# covered. Runs only when this file changes (or via Run workflow).
 
 on:
   push:
     branches: [main, master]
     paths:
-      - 'web/**'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -22,7 +25,6 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment; don't cancel an in-progress production deploy.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -34,15 +36,37 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Generate redirect page
+        run: |
+          mkdir -p _site
+          cat > _site/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8" />
+            <title>DayGlassBar has moved</title>
+            <meta name="robots" content="noindex" />
+            <link rel="canonical" href="https://dayglassbar.mu-777.dev/" />
+            <script>
+              (function () {
+                var p = location.pathname.replace(/^\/dayglassbar/, '') || '/';
+                location.replace('https://dayglassbar.mu-777.dev' + p + location.search + location.hash);
+              })();
+            </script>
+            <meta http-equiv="refresh" content="0; url=https://dayglassbar.mu-777.dev/" />
+          </head>
+          <body>
+            <p>DayGlassBar has moved to <a href="https://dayglassbar.mu-777.dev/">https://dayglassbar.mu-777.dev/</a>.</p>
+          </body>
+          </html>
+          EOF
+          cp _site/index.html _site/404.html
+          touch _site/.nojekyll
       - uses: actions/configure-pages@v5
         with:
-          # Auto-enable Pages (Source = GitHub Actions) via the API if it
-          # isn't yet, so the first run doesn't fail with "Get Pages site
-          # failed / Not Found". Needs the workflow's `pages: write` perm.
           enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: web
+          path: _site
       - id: deployment
         uses: actions/deploy-pages@v4

@@ -41,7 +41,7 @@
 - **採用**: `crypto`(PKCE) / `http`(ループバック受け) / `fetch`(トークン交換・取得) のみ。両プロバイダで**同一の汎用フロー1本**（`src/main/calendar/oauth.js` ＋ `oauth-url.js`）を共有し、`google.js`/`microsoft.js` はエンドポイント・スコープ・JSON マッピングだけを持つ。
 - **不採用**: `googleapis` ＋ `@azure/msal-node`。堅牢だが依存とバンドルが大きく、プロバイダごとに別コードになる（プロジェクトの依存ゼロ志向＝`npm run icons` も依存ゼロ、に反する）。標準 OAuth2 は薄く、自前で十分制御できる。
 - **逆戻りガード**: 機能追加のたびに重い SDK を引き込まない。プロバイダ差分は `mapEvents`/設定値に閉じ込める。
-- **タイムアウト**: fetch は全箇所に `AbortSignal.timeout` を付ける — トークン交換 30 秒（`oauth.js`）・API GET 10 秒（`google.js`/`microsoft.js`）。ハングした 1 接続が接続フロー（ユーザーが待つ）や更新タイマを固めない。更新確認ボタン（main）とランディングページ（`web/app.js`）の `releases/latest` も同様に 10 秒。
+- **タイムアウト**: fetch は全箇所に `AbortSignal.timeout` を付ける — トークン交換 30 秒（`oauth.js`）・API GET 10 秒（`google.js`/`microsoft.js`）。ハングした 1 接続が接続フロー（ユーザーが待つ）や更新タイマを固めない。更新確認ボタン（main）とランディングページ（`web/public/app.js`）の `releases/latest` も同様に 10 秒。
 
 ## 決定4: 秘匿情報は settings.json と分離（暗号化・エクスポート対象外）
 - リフレッシュトークン＋接続アカウントは `userData/calendar-accounts.enc`（Electron `safeStorage` で暗号化）に保存。**`settings.json` には入れない**＝エクスポートに含まれず、`validateSettings` も触れない。

@@ -8,16 +8,16 @@ Google カレンダー連携を「テストユーザー限定」から一般公�
 
 現在の運用（OAuth 同意画面が**「テスト」ステータス**・接続できるのはコンソールに登録した**テストユーザーのみ**＝決定2）には、次の2つの帰結がある。
 
-1. **テストユーザー以外は接続を完了できない**。配布ページ（GitHub Pages）から `.exe`/`.dmg` をダウンロードした一般ユーザーが「Connect Google」を押しても、同意画面で弾かれて Google 連携が機能しない。
+1. **テストユーザー以外は接続を完了できない**。配布ページ（`https://dayglassbar.mu-777.dev/`）から `.exe`/`.dmg` をダウンロードした一般ユーザーが「Connect Google」を押しても、同意画面で弾かれて Google 連携が機能しない。
 2. **テストステータスの refresh token は 7 日で失効する**。テストユーザーとして登録済みのユーザー（開発者自身を含む）でも、7日ごとに静かに切断され、色帯が更新されなくなる。今回の実装（本作業のタスク4）で `calendar:status` の `error` を設定UIに表示するようにしたため「切れたこと」自体は見えるようになったが、これは症状の可視化であって根本対策ではない。根本対策は本ドキュメントの公開ステータス化。
 
 一般ユーザーに Google 連携を配る（かつ 7 日ごとの再接続を要求しない）には、以下の手順で「本番」ステータスへ進める必要がある。
 
 ## 手順1: プライバシーポリシー・利用規約の作成・公開 — 実施済み
 
-sensitive scope の審査には、公開URLで閲覧できるプライバシーポリシーが必須。加えて、OAuth 同意画面（Branding）のホームページ・プライバシーポリシー・**利用規約**の3リンクは external の本番アプリでは必須項目で、欠けていると審査を提出できない（[Manage OAuth App Branding](https://support.google.com/cloud/answer/15549049): "These links are required for all external production apps. You will not be able to submit your app for verification if it is missing these links."）。**利用規約は `web/terms.html` として実装済み**（`https://mu-777.github.io/dayglassbar/terms.html`）。Google 公式要件の原文引用と記載内容の対応表（裏取り）は `docs/google-oauth-legal-pages.md`。
+sensitive scope の審査には、公開URLで閲覧できるプライバシーポリシーが必須。加えて、OAuth 同意画面（Branding）のホームページ・プライバシーポリシー・**利用規約**の3リンクは external の本番アプリでは必須項目で、欠けていると審査を提出できない（[Manage OAuth App Branding](https://support.google.com/cloud/answer/15549049): "These links are required for all external production apps. You will not be able to submit your app for verification if it is missing these links."）。**利用規約は `web/public/terms.html` として実装済み**（`https://dayglassbar.mu-777.dev/terms`）。Google 公式要件の原文引用と記載内容の対応表（裏取り）は `docs/google-oauth-legal-pages.md`。
 
-**`web/privacy.html` として実装済み**、`https://mu-777.github.io/dayglassbar/privacy.html` で公開される（`web/` の Pages ワークフローに乗るため push すれば自動反映。追加のビルド工程なし）。`index.html` と同じ `app.js` の i18n/lang toggle を共有し英/日対応。記載項目は当初案の以下をすべて満たす:
+**`web/public/privacy.html` として実装済み**、`https://dayglassbar.mu-777.dev/privacy` で公開される（`web/` の Cloudflare Workers Builds に乗るため master に入れば自動反映。追加のビルド工程なし）。`index.html` と同じ `app.js` の i18n/lang toggle を共有し英/日対応。記載項目は当初案の以下をすべて満たす:
 
 - 設定はローカルの JSON ファイル（`settings.json`）にのみ保存される（クラウド保存なし）。
 - Google カレンダーの OAuth トークンは端末内で `safeStorage`（OS 標準の暗号化）により暗号化保存され、設定のエクスポートには含まれない（**この記載を保証しているコードの file:line と、平文フォールバックという限定条件は `docs/google-oauth-legal-pages.md`「実装エビデンス」節**＝審査で根拠を問われたらここを見る）。
@@ -36,10 +36,10 @@ Google Cloud Console → 「APIとサービス」→「OAuth 同意画面」で�
 
 - **アプリ名**: DayGlassBar
 - **サポートメール**: 開発者の連絡先メールアドレス
-- **アプリのホームページ URL**: `https://mu-777.github.io/dayglassbar/`
-- **プライバシーポリシー URL**: 手順1で公開したページの URL
-- **アプリの利用規約 URL**: `https://mu-777.github.io/dayglassbar/terms.html`
-- **承認済みドメイン**: `mu-777.github.io`（ループバックリダイレクト `http://localhost` はここでは不要。承認済みドメインはホームページ/プライバシーポリシーのドメイン確認用）
+- **アプリのホームページ URL**: `https://dayglassbar.mu-777.dev/`
+- **プライバシーポリシー URL**: `https://dayglassbar.mu-777.dev/privacy`（手順1のページ。拡張子なしで登録＝ホームページのフッターのリンクと一致させる）
+- **アプリの利用規約 URL**: `https://dayglassbar.mu-777.dev/terms`
+- **承認済みドメイン**: `mu-777.dev`（Search Console での所有権確認は Cloudflare DNS に TXT レコードを足す「ドメイン」プロパティで行う。ループバックリダイレクト `http://localhost` はここでは不要。承認済みドメインはホームページ/プライバシーポリシーのドメイン確認用）
 
 ## 手順3: 公開ステータスを「本番」へ変更し、審査を提出する
 

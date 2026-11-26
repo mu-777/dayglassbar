@@ -3,7 +3,7 @@
 ---
 
 > ⚠️ **【IMPORTANT】THIS README IS FOR DEVELOPERS**  
-> For users: see: https://mu-777.github.io/dayglassbar/
+> For users: see: https://dayglassbar.mu-777.dev/
 
 ---
 
@@ -159,17 +159,26 @@ Claude Code のクラウドセッションからは `master` にも `refs/tags/*
 - **Windows**: SmartScreen が出たら「詳細情報 → 実行」。
 - **macOS**: 初回起動が「“DayGlassBar”は壊れているため開けません」でブロックされます（ファイル破損ではなく、未署名アプリに対する Gatekeeper の仕様）。アプリを「アプリケーション」へドラッグした後、ターミナルで `xattr -cr /Applications/DayGlassBar.app` を一度実行してから起動します。右クリック→「開く」ではこのダイアログは回避できません。この手順は紹介ページのダウンロード時モーダルと、DMG を開いた画面の背景画像にも表示されます（背景は [`assets/dmg/`](assets/dmg/)・再生成は `npm run dmg-bg`。`package.json` の `build.dmg` のアイコン座標とレイアウトが連動しているため、座標を変えたら背景も作り直します）。経緯と署名・公証（notarization）を導入する場合の手順は [`docs/macos-signing.md`](docs/macos-signing.md)。
 
-## 紹介・配布ページ（GitHub Pages）
+## 紹介・配布ページ（Cloudflare Workers）
 
-紹介とダウンロードのための静的サイトを [`web/`](web/) に置き、GitHub Pages で公開します（英語/日本語のライブ切替）。公開 URL は `https://mu-777.github.io/dayglassbar/`。
+紹介とダウンロードのための静的サイトを [`web/`](web/) に置き、Cloudflare Workers の静的アセットとして公開します（英語/日本語のライブ切替）。公開 URL は `https://dayglassbar.mu-777.dev/`（Cloudflare DNS 上の `mu-777.dev` のサブドメイン）。配信するのは [`web/public/`](web/public/) の中身だけです。
 
-- 公開: [`.github/workflows/pages.yml`](.github/workflows/pages.yml) が `web/` をそのまま Pages にアップロードします（ビルド工程なし）。`web/` を変更した push、または *Run workflow* で実行。**一度だけ** リポジトリの Settings → Pages → Source を「GitHub Actions」に設定します。
+```bash
+cd web
+npm install
+npx wrangler dev      # 手元で表示する（http://localhost:8787）
+```
+
+- 公開: Cloudflare の Workers Builds（Git 連携）が、master に `web/` の変更が入ると `npx wrangler deploy` を実行します（ビルド工程なし）。Worker 名 `dayglassbar-lp`・Custom Domain `dayglassbar.mu-777.dev` は [`web/wrangler.toml`](web/wrangler.toml)。
+- Cloudflare 側の設定（初回のみ）: Workers & Pages でこのリポジトリを取り込み、Worker 名 `dayglassbar-lp`、本番ブランチ `master`、ルートディレクトリ `web`、デプロイコマンド `npx wrangler deploy`、Build watch paths `web/*`。DNS レコードと証明書は Custom Domain の設定から Cloudflare が作ります。
+- URL: `/privacy.html` は `/privacy` へ、`/index.html` は `/` へ 307 で転送されます（Workers の既定の `html_handling`）。ページ内リンクと canonical は拡張子なしの URL です。
+- 旧 URL（`https://mu-777.github.io/dayglassbar/`）: [`.github/workflows/pages.yml`](.github/workflows/pages.yml) が、パスを保ったまま新しい URL へ転送するだけのページを GitHub Pages に置きます（`pages.yml` を変更した push、または *Run workflow* で実行）。
 - ダウンロードリンク: ページの JS が `releases/latest` を GitHub API で読み、`v*` タグで GitHub Actions が公開した**最新リリースの `.exe`/`.dmg` を自動反映**します（リリースごとの手編集は不要）。リポジトリが **public** であることが前提。
 - macOS 向け案内: `.dmg` のダウンロードリンクをクリックすると、初回起動手順（上記 Gatekeeper 回避）のモーダルを表示します（ダウンロードは中断しません）。
 - 画像: ヒーローとホバー説明は SVG モックアップで仮置きしてあります。実スクリーンショットへの差し替え手順は [`web/README.md`](web/README.md)。
-- OG カード（SNS 共有時のプレビュー画像）: `web/assets/og.png`（1200×630）。`npm run og`（[`tools/gen-og.mjs`](tools/gen-og.mjs)）で再生成します。
-- プライバシーポリシー: [`web/privacy.html`](web/privacy.html)（`https://mu-777.github.io/dayglassbar/privacy.html`）。アプリ本体のデータの扱いと、このサイトの Cloudflare Web Analytics（Cookie 不要の訪問数計測）を開示します。
-- 利用規約: [`web/terms.html`](web/terms.html)（`https://mu-777.github.io/dayglassbar/terms.html`）。Google OAuth の本番審査では同意画面への利用規約リンクの登録が必要なため用意しています（要件の根拠は [`docs/google-oauth-legal-pages.md`](docs/google-oauth-legal-pages.md)）。
+- OG カード（SNS 共有時のプレビュー画像）: `web/public/assets/og.png`（1200×630）。`npm run og`（[`tools/gen-og.mjs`](tools/gen-og.mjs)）で再生成します。
+- プライバシーポリシー: [`web/public/privacy.html`](web/public/privacy.html)（`https://dayglassbar.mu-777.dev/privacy`）。アプリ本体のデータの扱いと、このサイトの Cloudflare Web Analytics（Cookie 不要の訪問数計測）を開示します。
+- 利用規約: [`web/public/terms.html`](web/public/terms.html)（`https://dayglassbar.mu-777.dev/terms`）。Google OAuth の本番審査では同意画面への利用規約リンクの登録が必要なため用意しています（要件の根拠は [`docs/google-oauth-legal-pages.md`](docs/google-oauth-legal-pages.md)）。
 
 ## 初期設定（インストール直後）
 
@@ -313,4 +322,4 @@ DayGlassBar は無料です。気に入って開発を応援したい場合は�
 アプリ内では設定ウィンドウのヘッダ右上の「Support me on Ko-fi」リンク（Ko-fi のカップアイコン付き）から、GitHub リポジトリの「Sponsor」ボタンからも開けます。寄付を促す通知・ポップアップ・カウントダウンは出しません（中心思想「促すが、急かさない」に沿った静かなリンクのみ）。
 
 ## ライセンス
-MIT License（[LICENSE](LICENSE)）。名前「DayGlassBar」とアイコンはブランドとして扱い、ライセンスの許諾対象には含めない。同梱の Ko-fi シンボル画像は Ko-fi のブランド資産（`web/assets/LICENSE.md` 参照）。
+MIT License（[LICENSE](LICENSE)）。名前「DayGlassBar」とアイコンはブランドとして扱い、ライセンスの許諾対象には含めない。同梱の Ko-fi シンボル画像は Ko-fi のブランド資産（`web/public/assets/LICENSE.md` 参照）。

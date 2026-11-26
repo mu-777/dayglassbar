@@ -5,3 +5,5 @@ dist/
 .env
 # Local OAuth client IDs (public ids, but they identify your own Google/Azure project)
 src/main/calendar/client-ids.local.json
+# Cloudflare Workers（web/）の手元の状態
+.wrangler/
