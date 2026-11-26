@@ -26,10 +26,11 @@
 - **デプロイ**: Cloudflare の **Workers Builds**（Git 連携）。master への push で、
   `web/` に変更があれば `npx wrangler deploy` が走る。ルートディレクトリ・watch paths
   はダッシュボード側の設定。
-- **一度だけの設定**: Cloudflare ダッシュボード → Workers & Pages → Create →
-  このリポジトリを取り込み、Worker 名 `dayglassbar-lp`、本番ブランチ `master`、
-  ルートディレクトリ `web`、デプロイコマンド `npx wrangler deploy`、
-  Build watch paths `web/*`。
+- **Workers Builds の設定値**（構築済み。Worker → Settings → Build で確認・変更）:
+  リポジトリ `mu-777/dayglassbar`、本番ブランチ `master`、ルートディレクトリ `web`、
+  ビルドコマンドなし、デプロイコマンド `npx wrangler deploy`、Build watch paths
+  `web/*`（リポジトリ直下からの相対）、Previews は無効。手動で再デプロイするときは
+  Worker → Deployments の「Build」から（ブランチ指定可）。
 - **URL の形**: `html_handling` は既定の `auto-trailing-slash`＝`/privacy.html` は
   `/privacy` へ、`/index.html` は `/` へ 307。ページ内リンク・canonical・
   OAuth 同意画面に登録する URL は**拡張子なし（`/`・`/privacy`・`/terms`）**に揃える
