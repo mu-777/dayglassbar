@@ -1,30 +1,65 @@
 # DayGlassBar — 紹介・配布サイト
 
-依存ゼロの静的サイトで、**GitHub Pages** に公開します。
-公開 URL（設定後）: <https://mu-777.github.io/dayglassbar/>
+依存ゼロの静的サイトで、**Cloudflare Workers の静的アセット**として公開します。
+公開 URL: <https://dayglassbar.mu-777.dev/>
+
+`web/` は Worker のプロジェクト（`wrangler.toml`・`package.json`＝wrangler だけ）で、
+**配信するのは `public/` の中身だけ**です（この README や `node_modules` は配らない）。
+ページ自体は従来どおりビルド工程なし・ランタイム依存ゼロ。
 
 | ファイル | 役割 |
 | --- | --- |
-| `index.html` | ページ本体。英/日対応＝翻訳対象の文字列はすべて `data-i18n="key"` を持つ。 |
-| `privacy.html` | プライバシーポリシー（アプリ本体＋このサイトの Cloudflare Web Analytics を開示）。`index.html` と同じ `app.js` の i18n/lang toggle を共有。 |
-| `terms.html` | 利用規約（Google OAuth 本番審査で同意画面への ToS リンク登録が必須のため。根拠は `docs/google-oauth-legal-pages.md`）。`index.html` と同じ `app.js` の i18n/lang toggle を共有。 |
-| `styles.css` | アプリアイコン由来のダークテーマ（濃紺＋クールブルー1色）。 |
-| `app.js` | 英/日トグル（catalog 内蔵）・OS 判定・GitHub Releases のライブ取得。 |
-| `assets/` | 画像（`icon.png`・`og.png`＝OG カード・`kofi_symbol.svg`）。実スクショもここに置く。 |
-| `.nojekyll` | Jekyll 処理を無効化（無害。将来ブランチ配信へ切替時の保険）。 |
+| `public/index.html` | ページ本体。英/日対応＝翻訳対象の文字列はすべて `data-i18n="key"` を持つ。 |
+| `public/privacy.html` | プライバシーポリシー（アプリ本体＋このサイトの Cloudflare Web Analytics を開示）。`index.html` と同じ `app.js` の i18n/lang toggle を共有。URL は `/privacy`。 |
+| `public/terms.html` | 利用規約（Google OAuth 本番審査で同意画面への ToS リンク登録が必須のため。根拠は `docs/google-oauth-legal-pages.md`）。`index.html` と同じ `app.js` の i18n/lang toggle を共有。URL は `/terms`。 |
+| `public/styles.css` | アプリアイコン由来のダークテーマ（濃紺＋クールブルー1色）。 |
+| `public/app.js` | 英/日トグル（catalog 内蔵）・OS 判定・GitHub Releases のライブ取得。 |
+| `public/assets/` | 画像（`icon.png`・`og.png`＝OG カード・`kofi_symbol.svg`）。実スクショもここに置く。 |
+| `wrangler.toml` | Worker 名 `dayglassbar-lp`・Custom Domain `dayglassbar.mu-777.dev`・`[assets] directory = "./public"`。 |
+| `package.json` | wrangler（devDependency）だけ。アプリ本体の `package.json` には足さない。 |
 
-## 公開のしくみ
+## 配信（Cloudflare Workers）
 
-`.github/workflows/pages.yml` が、この `web/` フォルダを Pages にアップロードします
-（`web/` を変更した push、または *Run workflow* で実行）。ビルド工程はありません。
+- **配信**: Cloudflare Workers の静的アセット（Worker のスクリプトなし）。Worker 名
+  `dayglassbar-lp`、Custom Domain `dayglassbar.mu-777.dev`（`wrangler.toml` の
+  `routes`）。DNS レコードと証明書は Custom Domain から Cloudflare が作る。
+- **デプロイ**: Cloudflare の **Workers Builds**（Git 連携）。master への push で、
+  `web/` に変更があれば `npx wrangler deploy` が走る。ルートディレクトリ・watch paths
+  はダッシュボード側の設定。
+- **Workers Builds の設定値**（構築済み。Worker → Settings → Build で確認・変更）:
+  リポジトリ `mu-777/dayglassbar`、本番ブランチ `master`、ルートディレクトリ `web`、
+  ビルドコマンドなし、デプロイコマンド `npx wrangler deploy`、Build watch paths
+  `web/*`（リポジトリ直下からの相対）、Previews は無効。手動で再デプロイするときは
+  Worker → Deployments の「Build」から（ブランチ指定可）。
+- **URL の形**: `html_handling` は既定の `auto-trailing-slash`＝`/privacy.html` は
+  `/privacy` へ、`/index.html` は `/` へ 307。ページ内リンク・canonical・
+  OAuth 同意画面に登録する URL は**拡張子なし（`/`・`/privacy`・`/terms`）**に揃える
+  （同意画面の Privacy URL とホームページのリンクを一致させる要件＝
+  `docs/google-oauth-legal-pages.md` R2。リダイレクトを挟まない）。
+- **旧 URL**: `https://mu-777.github.io/dayglassbar/` は `.github/workflows/pages.yml`
+  が置く転送専用ページ（JS でパス・クエリ・ハッシュを保ったまま新 URL へ。
+  JS なしはトップへ meta refresh。`404.html` も同じ中身＝旧パスすべてを拾う）。
+  `web/` は Pages に上げない。
 
-**一度だけの設定:** リポジトリの **Settings → Pages → Build and deployment →
-Source を「GitHub Actions」** に設定します。最初の実行後、上記 URL で公開されます。
+**理由（StepCut の LP `stepcut.mu-777.dev` と同じ構成にそろえた）**: ドメインが既に
+Cloudflare にあり、サブドメインなら Custom Domain の 1 行で済む（同じドメインの
+ほかのページと経路が重ならない）。Workers の静的アセットと Workers Builds は無料枠で
+足りる。Workers Builds は GitHub に Cloudflare の API トークンを置かずに済む。
 
-> 代替案（ワークフロー不要）: Source を「Deploy from a branch」→ `/docs` にして、
-> これらのファイルを `docs/` へ移す方法もあります。インフラは軽いですが、`docs/`
-> にある内部設計ドキュメントと公開サイトが混在します。両者を分けるため
-> `web/` ＋ Actions の構成を採用しています。
+**不採用案（逆戻りガード）**:
+- **GitHub Pages のまま独自ドメインを向ける** — ほかのページと同じ Cloudflare に
+  そろえた。Pages は転送専用に残す。
+- **GitHub Actions + `wrangler deploy`** — `paths:` で条件を書けるが、Cloudflare の
+  API トークンを GitHub Secrets に置く必要がある。
+- **`mu-777.dev/dayglassbar`（パスで分ける）** — ルートと `assets.base_path` で
+  できるが、ドメイン直下のページ側の割り当て方に依存し設定が増える。ユーザーが
+  サブドメインを選んだ。
+- **`web/` 直下をそのまま配信（`.assetsignore` で README 等を除外）** — 除外漏れで
+  内部ファイルを配る事故が起きうる。`public/` に分けた。
+- **`html_handling = "none"` で `.html` の URL を残す** — `/privacy` が 404 になり、
+  Workers の慣習とずれる。拡張子なしに揃えた。
+- **旧 Pages を単に止める** — README・SNS・検索結果・OAuth 同意画面に残る旧 URL が
+  404 になる。
 
 ## ダウンロードリンク
 
@@ -60,7 +95,7 @@ Android の Chrome は、ユーザーが意図して設定していなくても 
 そのため実スクショなしでもページの全体像を確認できます。Windows/macOS の実機が
 用意できたら実スクショへ差し替えてください（バーは WSLg では描画できないため）。
 
-`assets/` に追加して差し替えると良い実画像:
+`public/assets/` に追加して差し替えると良い実画像:
 
 1. **ヒーロー用スクショ** — 右の縁に細いバーが張り付いたデスクトップ。塗りが
    半分くらい残る午後の時刻が見栄え良い。背後に実ウィンドウがあると文脈が出る。
@@ -83,24 +118,30 @@ Android の Chrome は、ユーザーが意図して設定していなくても 
 
 ## Web Analytics（Cloudflare）
 
-`index.html`・`privacy.html` の `</body>` 直前に、訪問数を見るための
+`public/` の `index.html`・`privacy.html`・`terms.html` の `</body>` 直前に、訪問数を見るための
 Cloudflare Web Analytics のビーコンスクリプトが入っています。Cookie 不要・
 同意バナー不要（`docs/google-oauth-publishing.md` 検討時に GA4 は Cookie
 同意バナーが実質必須と判明し不採用。代わりにこちらを採用）。
 
-トークンは設定済みです。再発行・サイト変更時は以下の手順で取得し、
-`index.html`・`privacy.html` 両方の `data-cf-beacon` の `token` を差し替えます。
+トークンはサイト（ホスト名）ごとに発行され、**apex ドメインが違うと使えない**
+（ビーコン受信時にホスト名を後方一致で検証する。`mu-777.github.io` 用のトークンは
+`dayglassbar.mu-777.dev` では無効）。再発行・サイト変更時は以下の手順で取得し、
+3 ファイルの `data-cf-beacon` の `token` を差し替えます。
 
 1. Cloudflare ダッシュボード → **Web Analytics** → **Add a site**。
-2. サイトの追加方法は「JavaScript snippet」（DNS を Cloudflare に移す必要はない）。
-   ホスト名は `mu-777.github.io`。
-3. 発行された snippet 内の `token` の値をコピーし、`index.html`・`privacy.html`
-   両方の `data-cf-beacon` の `token` を置き換える。
+2. 手動の「JavaScript snippet」で追加し、ホスト名は `dayglassbar.mu-777.dev`。
+   （プロキシ済みゾーン向けの自動注入は `mu-777.dev` ゾーンの全ページに入るので使わない。）
+3. 発行された snippet 内の `token` の値をコピーし、`index.html`・`privacy.html`・
+   `terms.html` の `data-cf-beacon` の `token` を置き換える。
 4. ダッシュボードに数値が出るまで数分かかる（[公式ドキュメント](https://developers.cloudflare.com/web-analytics/get-started/)）。
 
 ## ローカルプレビュー
 
 ```bash
 cd web
-python3 -m http.server 8080   # ブラウザで http://localhost:8080
+npm install
+npx wrangler dev      # ブラウザで http://localhost:8787（本番と同じ URL の扱い）
 ```
+
+`public/` を `python3 -m http.server` で開くこともできるが、拡張子なしのリンク
+（`/privacy`・`/terms`）は解決されない。

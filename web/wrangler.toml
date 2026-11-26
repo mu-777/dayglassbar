@@ -1,0 +1,12 @@
+# DayGlassBar の紹介・配布ページ(https://dayglassbar.mu-777.dev)。静的ファイルだけを配る Worker(スクリプトなし)。
+# デプロイは Cloudflare の Workers Builds(master への push で `npx wrangler deploy`。ルートディレクトリ `web`)。
+# 手元で見る: `cd web && npm install && npx wrangler dev`。経緯・不採用案は web/README.md「配信（Cloudflare Workers）」
+name = "dayglassbar-lp"
+compatibility_date = "2026-11-01"
+routes = [{ pattern = "dayglassbar.mu-777.dev", custom_domain = true }]
+
+# 配るのは public/ だけ(この README.md・package.json・node_modules は配信しない)。
+# html_handling は既定の auto-trailing-slash＝/privacy.html は /privacy へ 307。
+# ページ内リンク・canonical・OAuth 同意画面に登録する URL は拡張子なし(/privacy, /terms)に揃えてある。
+[assets]
+directory = "./public"

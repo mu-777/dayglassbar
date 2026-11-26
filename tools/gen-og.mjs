@@ -1,5 +1,5 @@
 // Renders the OG / social card (1200x630 PNG) for the landing site and saves it
-// to web/assets/og.png, which web/index.html's og:image points at.
+// to web/public/assets/og.png, which web/public/index.html's og:image points at.
 //
 // Same zero-extra-dependency approach as capture-bar.mjs: an Electron window
 // loads an inline HTML card and capturePage() saves the PNG. The card reuses the
@@ -7,7 +7,7 @@
 // a thin sliver of light at the right edge, denser toward the bottom (remaining
 // time collects below as the day drains).
 //
-//   npm run og            # -> web/assets/og.png
+//   npm run og            # -> web/public/assets/og.png
 //
 // Fonts: the card prefers Inter, then falls back to the landing page's stack,
 // so the exact letterforms depend on the machine that renders it (Segoe UI on
@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const OUT = path.join(ROOT, 'web', 'assets', 'og.png');
+const OUT = path.join(ROOT, 'web', 'public', 'assets', 'og.png');
 const W = 1200;
 const H = 630;
 
@@ -30,7 +30,7 @@ app.on('window-all-closed', () => {});
 
 // Inline the icon: a data: page cannot load file:// resources.
 const iconUrl = 'data:image/png;base64,' +
-  fs.readFileSync(path.join(ROOT, 'web', 'assets', 'icon.png')).toString('base64');
+  fs.readFileSync(path.join(ROOT, 'web', 'public', 'assets', 'icon.png')).toString('base64');
 
 // Hour ticks on the bar, like the app's (subtle, darker notches on the fill).
 const ticks = Array.from({ length: 7 }, (_, i) =>

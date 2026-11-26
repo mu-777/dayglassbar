@@ -1,0 +1,12 @@
+{
+  "name": "dayglassbar-lp",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.160.1"
+  }
+}

@@ -172,7 +172,7 @@ curl -fsSL "https://api.github.com/repos/mu-777/dayglassbar/releases/tags/v<新�
 1. `release` workflow の tag ジョブが緑（赤ならタグは打たれていない）
 2. Release 本文 = CHANGELOG の該当節（案内コメントやリンク定義が混入していない）
 3. `.exe`（Setup + portable）と `.dmg` が添付されている
-4. 配布ページ（`https://mu-777.github.io/dayglassbar/`）の DL リンクが新版を指す（`releases/latest` を読むので自動。反映はブラウザ再読込で）
+4. 配布ページ（`https://dayglassbar.mu-777.dev/`）の DL リンクが新版を指す（`releases/latest` を読むので自動。反映はブラウザ再読込で）
 
 ## 失敗時の対応
 
